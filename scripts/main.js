@@ -8,8 +8,17 @@ const levels = {
     },
     completed : false
   },
-  1 : {
+  2 : {
     name : "2",
+    gridSize : 3,
+    creatures : {
+      fox : 1,
+      rabbit : 4
+    },
+    completed : false
+  },
+  1 : {
+    name : "3",
     gridSize : 4,
     creatures : {
       fox : 3,
@@ -30,7 +39,7 @@ const levels = {
     completed : false
   },
   3 : {
-    name : "3",
+    name : "4",
     gridSize : 5,
     creatures : {
       fox : 6,
@@ -39,7 +48,7 @@ const levels = {
     completed : false
   },
   4 : {
-    name : "4",
+    name : "5",
     gridSize : 4,
     creatures : {
       fox : 2,
@@ -50,7 +59,7 @@ const levels = {
     completed : false
   },
   5 : {
-    name : "5",
+    name : "6",
     gridSize : 5,
     creatures : {
       rabbit : 18,
@@ -368,16 +377,20 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
         let effectorsOfThisTile = effectorsOfTile[xEffector+","+yEffector];
         if (effectorType=="territorial") {
           cg.c.strokeStyle = effectorTypes[effectorType].colour;
-          cg.c.lineWidth = 10;
+          cg.c.lineWidth = tileSize*0.1;
           cg.c.strokeRect(xEffector*tileSize-xo+cg.c.lineWidth/2,yEffector*tileSize-yo+cg.c.lineWidth/2,tileSize-cg.c.lineWidth,tileSize-cg.c.lineWidth);
-        } else {
+        } else if (effectorType=="calming") {
+          cg.c.strokeStyle = effectorTypes[effectorType].colour;
+          cg.c.lineWidth = tileSize*0.1;
+          cg.c.strokeRect(xEffector*tileSize-xo+cg.c.lineWidth*2,yEffector*tileSize-yo+cg.c.lineWidth*2,tileSize-cg.c.lineWidth*4,tileSize-cg.c.lineWidth*4);
+        } else if (effectorType=="aggressive") {
           cg.c.fillStyle = effectorTypes[effectorType].colour;
-          cg.c.globalAlpha = 0.8;
+          cg.c.fillRect(xEffector*tileSize-xo+tileSize/4,yEffector*tileSize-yo+tileSize/4,tileSize*0.5,tileSize*0.5);
+        } else if (effectorType=="passive") {
+          cg.c.fillStyle = effectorTypes[effectorType].colour;
           cg.c.beginPath();
-          // cg.c.arc(xEffector*tileSize-xo+effectorsOfThisTile*30+24,yEffector*tileSize-yo+24,12,0,2*Math.PI);
           cg.c.arc(xEffector*tileSize-xoC,yEffector*tileSize-yoC,tileSize/4,0,2*Math.PI);
           cg.c.fill();
-          cg.c.globalAlpha = 1;
         }
       }
     }
@@ -397,6 +410,13 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       let y = gridCreature.y;
 
       // AGITATION
+      cg.c.fillStyle = "#ffffff";
+      cg.c.beginPath();
+      cg.c.arc(x*tileSize-xo+g.textCornerPadding+5.5,y*tileSize-yo+g.textCornerPadding+8,10,0,2*Math.PI);
+      cg.c.fill();
+      cg.c.strokeStyle = gridCreature.agitation > 0 ? "#ff0000" : "#00ff00";
+      cg.c.lineWidth = 3;
+      cg.c.stroke();
       cg.c.font = "bold 20px Arial";
       cg.c.fillStyle = "#000000";
       cg.c.textAlign = "left";
@@ -421,6 +441,7 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
   setup(g,graphicInit,cg) {
     g.height = 800;
     g.width = 400;
+    g.buttonHeight = 150;
 
     g.creatureScale = 0.8;
     g.creatures = {};
@@ -452,9 +473,8 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
       for (let creature of Object.keys(this.creatures)) {
         let y = creatureNum;
         let x = picker.x;
-        let buttonHeight = g.width/2;
-        let yo = g.height/2-buttonHeight/2;
-        let newButton = cg.createButton({x:x,y:y*buttonHeight-yo,width:g.width,height:buttonHeight,id:"picker"+creature,creature:creature,cursor:"pointer",check:"gameScreen",CGSpace:true,
+        let yo = g.height/2-g.buttonHeight/2;
+        let newButton = cg.createButton({x:x,y:y*g.buttonHeight-yo,width:g.width,height:g.buttonHeight,id:"picker"+creature,creature:creature,cursor:"pointer",check:"gameScreen",CGSpace:true,
           down:function(){
             if (g.creatures[this.creature] > 0) {
               grid.creatures.push({creature:this.creature,x:0,y:0,agitation:0,hidden:true,unhideWhenDropped:true,hasEntered:false});
@@ -476,16 +496,22 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
     for (let creatureId of Object.keys(g.creatures)) {
       let creature = creatures[creatureId];
       let y = Object.keys(g.creatures).indexOf(creatureId);
-      let x = 0;
-      let tileSize = g.width/2;
-      let xo = 0;
-      let yo = g.height/2-tileSize/2;
-      cg.drawImage(creature.image,x*tileSize-xo,y*tileSize-yo,tileSize*g.creatureScale,tileSize*g.creatureScale,0,false);
+      let yo = g.height/2-g.buttonHeight/2;
+      cg.drawImage(creature.image,0,y*g.buttonHeight-yo,g.buttonHeight*g.creatureScale,g.buttonHeight*g.creatureScale,0,false);
       cg.c.fillStyle = "#000000";
       cg.c.font = "20px Arial";
       cg.c.textAlign = "left";
       cg.c.textBaseline = "top";
-      cg.c.fillText("x"+g.creatures[creatureId],x*tileSize-xo+100,y*tileSize-yo);
+      cg.c.fillText("x"+g.creatures[creatureId],100,y*g.buttonHeight-yo);
+      cg.c.textAlign = "center";
+      cg.c.fillText(creatures[creatureId].type,0,y*g.buttonHeight-yo+g.buttonHeight/2-25);
+      cg.c.strokeStyle = effectorTypes[creatures[creatureId].type].colour;
+      cg.c.lineWidth = 10;
+      cg.c.lineCap = "round";
+      cg.c.beginPath();
+      cg.c.moveTo(-50,y*g.buttonHeight-yo+g.buttonHeight/2);
+      cg.c.lineTo(50,y*g.buttonHeight-yo+g.buttonHeight/2);
+      cg.c.stroke();
     }
   }
 }
@@ -493,14 +519,12 @@ const picker = cg.createGraphic({type:"picker",id:"picker",CGSpace:true,x:600});
 
 ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
   setup(g,graphicInit,cg) {
-    g.levels = [0,1,3,4,5,"test"];
+    g.levels = [0,2,1,3,4,5,"test"];
 
     g.widthPerLevel = 250;
     g.hightPerLevel = 200;
 
     g.createButtons = function() {
-      let xo = g.levels.length*g.widthPerLevel/2-levelSelector.x;
-      let yo = g.hightPerLevel/2-levelSelector.y;
       let xoC = g.levels.length*g.widthPerLevel/2-g.widthPerLevel/2;
       let levelNum = 0;
       for (let levelId of g.levels) {
