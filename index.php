@@ -3,6 +3,12 @@
   ::-webkit-scrollbar { display: none; }
   canvas { background: white; margin: 0px; display: inline-block; }
   #full { width: 100%; height: 100%; margin: 0; }
+  @font-face {
+    font-family: "MgOpenModata";
+    src: url('fonts/mgopen-modata-bold.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+  }
 </style>
 <center>
   <div id="full"><canvas></canvas></div>

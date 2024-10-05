@@ -1,3 +1,11 @@
+cg.createImage({id:"shine",file:"shine.png"});
+cg.createGraphic({type:"image",id:"shine",CGSpace:true,image:cg.images.shine});
+cg.createImage({id:"returnToLevels",file:"returnToLevels.png"});
+cg.createImage({id:"grid5",file:"grid-5.png"});
+cg.createImage({id:"grid4",file:"grid-4.png"});
+cg.createImage({id:"grid3",file:"grid-3.png"});
+cg.createImage({id:"reset",file:"reset.png"});
+
 const levels = {
   0 : {
     name : "1",
@@ -27,7 +35,7 @@ const levels = {
     completed : false
   },
   "test" : {
-    name : "Testing",
+    name : "x",
     gridSize : 10,
     creatures : {
       fox : 50,
@@ -142,19 +150,30 @@ cg.settings.callbacks.keyDown = function(key) {
 
 cg.settings.callbacks.cursorUp = function() {
   let gridHovered = false;
+  let isHoveredOccupied = false;
   for (let button of grid.gridButtons) {
     if (cg.buttons[button.id].hovered) {
       gridHovered = true;
+      let creatureIndex = 0;
+      for (let creature of grid.creatures) {
+        if (creatureIndex == grid.selectedCreature) { continue; } // Skip self
+        if (creature.x == button.gridX && creature.y == button.gridY) {
+          isHoveredOccupied = true;
+          break;
+        }
+        creatureIndex++;
+      }
       break;
     }
   }
   if (grid.selectedCreature !== null) { // If creature was being held
     let newCreature = (grid.creatures[grid.selectedCreature].hidden&&!grid.creatures[grid.selectedCreature].unhideWhenDropped);
-    if (!gridHovered||newCreature) { // Dropped off grid
+    if (!gridHovered||newCreature||isHoveredOccupied) { // Dropped off grid
       grid.creatures.splice(grid.selectedCreature,1);
-    } else { // Dropped on grid
+    } else if (gridHovered) { // Dropped on grid
       ChoreoGraph.Input.hoveredCG.cnvs.style.cursor = "grab";
       grid.creatures[grid.selectedCreature].hidden = false;
+      console.log("show")
     }
   }
   picker.update();
@@ -164,6 +183,9 @@ cg.settings.callbacks.cursorUp = function() {
 }
 
 cg.settings.callbacks.loopBefore = function(cg) {
+  cg.graphics.shine.width = cg.cw/cg.z;
+  cg.graphics.shine.height = cg.ch/cg.z;
+  cg.addToLevel(0,cg.graphics.shine);
   if (screen == "game") {
     cg.addToLevel(0,cg.graphics.grid);
     cg.addToLevel(0,cg.graphics.picker);
@@ -329,14 +351,19 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
     }
   }
   draw(g,cg) {
-    for (let x = 0; x < g.gSize; x++) {
-      for (let y = 0; y < g.gSize; y++) {
-        let tileSize = g.maxWidth/g.gSize;
-        let xo = tileSize*g.gSize/2;
-        let yo = tileSize*g.gSize/2;
-        cg.c.strokeStyle = "#000000";
-        cg.c.strokeRect(x*tileSize-xo,y*tileSize-yo,tileSize,tileSize);
+    if (cg.images["grid"+g.gSize]==undefined) {
+      for (let x = 0; x < g.gSize; x++) {
+        for (let y = 0; y < g.gSize; y++) {
+          let tileSize = g.maxWidth/g.gSize;
+          let xo = tileSize*g.gSize/2;
+          let yo = tileSize*g.gSize/2;
+          cg.c.strokeStyle = "#000000";
+          cg.c.strokeRect(x*tileSize-xo,y*tileSize-yo,tileSize,tileSize);
+        }
       }
+    } else {
+      let image = cg.images["grid"+g.gSize];
+      cg.drawImage(image,0,0,g.maxWidth*1.03,g.maxWidth*1.03,0,false);
     }
     let markers = {};
     for (let effectorType of Object.keys(effectorTypes)) {
@@ -532,6 +559,10 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
     g.widthPerLevel = 250;
     g.hightPerLevel = 200;
 
+    
+    g.levelsRandom = ["#e93526","#fb9938","#fdd816","#17912a","#10caf3","#a871d9","#ff47be","#e93526","#fb9938","#fdd816","#17912a","#10caf3","#a871d9","#ff47be"]
+    g.levelsRandom = g.levelsRandom.sort(() => Math.random() - 0.5);
+
     g.createButtons = function() {
       let xoC = g.levels.length*g.widthPerLevel/2-g.widthPerLevel/2;
       let levelNum = 0;
@@ -547,10 +578,9 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
     }
   }
   draw(g,cg) {
-    let xo = g.levels.length*g.widthPerLevel/2;
-    let yo = g.hightPerLevel/2;
     let xoC = g.levels.length*g.widthPerLevel/2-g.widthPerLevel/2;
     let levelNum = 0;
+    let completedPrevious = false;
     for (let level of g.levels) {
       if (levels[level].completed) {
         cg.c.strokeStyle = "#00ff00";
@@ -558,13 +588,52 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
         cg.c.strokeStyle = "#ff0000";
       }
       cg.c.lineWidth = 10;
-      cg.c.strokeRect(0-xo+g.widthPerLevel*levelNum+20,-yo+20,g.widthPerLevel-40,g.hightPerLevel-40);
+      // cg.c.strokeRect(0-xo+g.widthPerLevel*levelNum+20,-yo+20,g.widthPerLevel-40,g.hightPerLevel-40);
       cg.c.textAlign = "center";
       cg.c.textBaseline = "middle";
-      cg.c.font = "50px Arial";
-      cg.c.fillStyle = "#000000";
-      cg.c.fillText(levels[level].name,0-xoC+g.widthPerLevel*levelNum,0);
+      cg.c.font = "230px MgOpenModata";
+      cg.c.fillStyle = ["#e93526","#fb9938","#fdd816","#17912a","#10caf3","#a871d9","#ff47be"][levelNum];
+      if (cg.buttons["level"+level].hovered) {
+        cg.c.fillStyle = ChoreoGraph.colourLerp(cg.c.fillStyle,"#000000",0.4);
+      }
+      if (!completedPrevious&&levelNum!=0) {
+        cg.c.fillStyle = "#999999";
+      }
+      completedPrevious = false;
+      cg.c.save();
+      cg.c.translate(0-xoC+g.widthPerLevel*levelNum,12);
+      let rotation = [4,-3,12,-12,6,-6,0][levelNum];
+      cg.c.rotate(rotation*Math.PI/180);
+      cg.c.fillText(levels[level].name,0,0);
+      cg.c.strokeStyle = "#ffffff";
+      cg.c.lineWidth = 3;
+      if (cg.buttons["level"+level].hovered) {
+        cg.c.strokeText(levels[level].name,0,0);
+      }
+      cg.c.strokeStyle = "#888888";
+      cg.c.filter = "blur(8px)";
+      cg.c.strokeText(levels[level].name,0,0);
+      cg.c.restore();
       levelNum++;
+      if (levels[level].completed) {
+        completedPrevious = true;
+      }
+    }
+    let letterNum = 0;
+    for (let letter of ["L","E","V","E","L","S"]) {
+      cg.c.font = "120px MgOpenModata";
+      cg.c.fillStyle = g.levelsRandom[letterNum];
+      cg.c.save();
+      cg.c.translate(letterNum*80-(5*80)/2,-230);
+      let rotation = [-1,-20,-3,7,6,6][letterNum];
+      cg.c.rotate(rotation*Math.PI/180);
+      cg.c.fillText(letter,0,0);
+      cg.c.filter = "blur(8px)";
+      cg.c.strokeStyle = "#888888";
+      cg.c.lineWidth = 3;
+      cg.c.strokeText(letter,0,0);
+      cg.c.restore();
+      letterNum++;
     }
   }
 }
@@ -573,16 +642,16 @@ levelSelector.createButtons();
 
 ChoreoGraph.graphicTypes.returnToLevels = new class ReturnToLevels {
   draw(g,cg) {
-    cg.c.fillStyle = cg.buttons.returnToLevels.hovered ? "#555555" : "#000000";
-    cg.c.font = "50px Arial";
-    cg.c.textAlign = "center";
-    cg.c.textBaseline = "middle";
-    cg.c.fillText("Return To Levels",0,50);
+    if (cg.buttons.returnToLevels.hovered) {
+      cg.c.rotate(-0.05);
+    }
+    let imageScale = 0.25;
+    cg.drawImage(cg.images.returnToLevels,0,65,1146*imageScale,569*imageScale,0,false);
   }
 }
 const returnToLevels = cg.createGraphic({type:"returnToLevels",id:"returnToLevels",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0});
 
-cg.createButton({x:0,y:50,width:400,height:100,id:"returnToLevels",cursor:"pointer",check:"gameScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0,
+cg.createButton({x:0,y:70,width:400,height:120,id:"returnToLevels",cursor:"pointer",check:"gameScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0,
   down:function(){
     screen = "levels";
   }
