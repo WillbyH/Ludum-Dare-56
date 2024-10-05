@@ -357,7 +357,7 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
         let xEffector = x+effector[0];
         let yEffector = y+effector[1];
         if (xEffector >= 0 && xEffector < g.gSize && yEffector >= 0 && yEffector < g.gSize) {
-          markers[creatures[gridCreature.creature].type].push([xEffector,yEffector]);
+          markers[creatures[gridCreature.creature].type].push([xEffector,yEffector,x,y]);
         }
       }
     }
@@ -369,12 +369,19 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       for (let marker of markers[effectorType]) {
         let xEffector = marker[0];
         let yEffector = marker[1];
+        let creatureX = marker[2];
+        let creatureY = marker[3];
         if (effectorsOfTile[xEffector+","+yEffector] === undefined) {
           effectorsOfTile[xEffector+","+yEffector] = 0;
         } else {
           effectorsOfTile[xEffector+","+yEffector]++;
         }
         let effectorsOfThisTile = effectorsOfTile[xEffector+","+yEffector];
+        if (cg.buttons["grid"+creatureX+","+creatureY]?.hovered) {
+          cg.c.globalAlpha = 1;
+        } else {
+          cg.c.globalAlpha = 0.2;
+        }
         if (effectorType=="territorial") {
           cg.c.strokeStyle = effectorTypes[effectorType].colour;
           cg.c.lineWidth = tileSize*0.1;
@@ -392,6 +399,7 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
           cg.c.arc(xEffector*tileSize-xoC,yEffector*tileSize-yoC,tileSize/4,0,2*Math.PI);
           cg.c.fill();
         }
+        cg.c.globalAlpha = 1;
       }
     }
     for (let gridCreature of g.creatures) {
