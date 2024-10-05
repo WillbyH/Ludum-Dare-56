@@ -21,11 +21,11 @@ const levels = {
     name : "Testing",
     gridSize : 10,
     creatures : {
-      fox : 10,
-      rabbit : 10,
-      spider : 10,
-      capybara : 10,
-      snake : 10
+      fox : 50,
+      rabbit : 50,
+      spider : 50,
+      capybara : 50,
+      snake : 50
     },
     completed : false
   },
@@ -43,9 +43,19 @@ const levels = {
     gridSize : 4,
     creatures : {
       fox : 2,
-      rabbit : 6,
+      rabbit : 7,
       capybara : 1,
       spider : 1
+    },
+    completed : false
+  },
+  5 : {
+    name : "5",
+    gridSize : 5,
+    creatures : {
+      rabbit : 18,
+      snake : 2,
+      spider : 2
     },
     completed : false
   }
@@ -79,7 +89,7 @@ const creatures = {
   snake : {
     effectors : [[1,-1],[1,1],[-1,1],[-1,-1],[2,0],[0,2],[-2,0],[0,-2]],
     type : "aggressive",
-    startingAgitation : 0,
+    startingAgitation : 1,
     image: {file:"creatures.png",crop:[0,300,300,300]}
   }
 }
@@ -483,7 +493,7 @@ const picker = cg.createGraphic({type:"picker",id:"picker",CGSpace:true,x:600});
 
 ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
   setup(g,graphicInit,cg) {
-    g.levels = [0,1,3,4,"test"];
+    g.levels = [0,1,3,4,5,"test"];
 
     g.widthPerLevel = 250;
     g.hightPerLevel = 200;
