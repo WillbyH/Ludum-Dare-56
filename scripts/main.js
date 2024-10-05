@@ -17,21 +17,35 @@ const levels = {
     },
     completed : false
   },
-  2 : {
-    name : "3",
+  "test" : {
+    name : "Testing",
     gridSize : 10,
     creatures : {
       fox : 10,
-      rabbit : 10
+      rabbit : 10,
+      spider : 10,
+      capybara : 10,
+      snake : 10
     },
     completed : false
   },
   3 : {
-    name : "4",
-    gridSize : 10,
+    name : "3",
+    gridSize : 5,
     creatures : {
       fox : 6,
       rabbit : 3
+    },
+    completed : false
+  },
+  4 : {
+    name : "4",
+    gridSize : 4,
+    creatures : {
+      fox : 2,
+      rabbit : 6,
+      capybara : 1,
+      spider : 1
     },
     completed : false
   }
@@ -50,6 +64,24 @@ const creatures = {
     startingAgitation : 0,
     image: {file:"creatures.png",crop:[300,0,300,300]}
   },
+  spider : {
+    effectors : [[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]],
+    type : "territorial",
+    startingAgitation : -2,
+    image: {file:"creatures.png",crop:[600,0,300,300]}
+  },
+  capybara : {
+    effectors : [[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[2,0],[0,2],[-2,0],[0,-2]],
+    type : "calming",
+    startingAgitation : -1000,
+    image: {file:"creatures.png",crop:[900,0,300,300]}
+  },
+  snake : {
+    effectors : [[1,-1],[1,1],[-1,1],[-1,-1],[2,0],[0,2],[-2,0],[0,-2]],
+    type : "aggressive",
+    startingAgitation : 0,
+    image: {file:"creatures.png",crop:[0,300,300,300]}
+  }
 }
 
 for (let creatureId in creatures) {
@@ -236,7 +268,6 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
         currentCreature.agitation = creatures[currentCreature.creature].startingAgitation;
       }
       for (let currentCreature of g.creatures) {
-        let currentAgitation = currentCreature.agitation;
         for (let effector of creatures[currentCreature.creature].effectors) { // For each effector
           let x = currentCreature.x+effector[0];
           let y = currentCreature.y+effector[1];
@@ -244,22 +275,18 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
             for (let otherCreature of g.creatures) { // For each other creature
               if (otherCreature.x == x && otherCreature.y == y) { // If other creature is in range
                 let effectorType = effectorTypes[creatures[currentCreature.creature].type];
-                let otherEffectorType = effectorTypes[creatures[otherCreature.creature].type];
-                let currentCreatureAgitationChange = otherEffectorType.self;
+                let currentCreatureAgitationChange = effectorType.self;
                 let otherCreatureAgitationChange = effectorType.inRange;
-                if (currentCreature.creature == otherCreature.creature) {
-                  if (effectorType.invertIfSame) {
-                    currentCreatureAgitationChange = -currentCreatureAgitationChange;
-                    otherCreatureAgitationChange = -otherCreatureAgitationChange;
-                  }
+                if (currentCreature.creature == otherCreature.creature&&effectorType.invertIfSame) {
+                  currentCreatureAgitationChange = -currentCreatureAgitationChange;
+                  otherCreatureAgitationChange = -otherCreatureAgitationChange;
                 }
-                currentAgitation += currentCreatureAgitationChange
+                currentCreature.agitation += currentCreatureAgitationChange
                 otherCreature.agitation += otherCreatureAgitationChange;
               }
             }
           }
         }
-        currentCreature.agitation = currentAgitation;
       }
       let complete = true;
       let validGame = false;
@@ -305,13 +332,6 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       if (!gridCreature.hasEntered) { continue; }
       let x = gridCreature.x;
       let y = gridCreature.y;
-
-      // AGITATION
-      cg.c.font = "20px Arial";
-      cg.c.fillStyle = "#000000";
-      cg.c.textAlign = "left";
-      cg.c.textBaseline = "top";
-      cg.c.fillText(gridCreature.agitation,x*tileSize-xo+g.textCornerPadding,y*tileSize-yo+g.textCornerPadding);
 
       // EFFECTOR AREA
       for (let effector of creatures[gridCreature.creature].effectors) {
@@ -360,6 +380,18 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       // CREATURE IMAGE
       let creature = creatures[gridCreature.creature];
       cg.drawImage(creature.image,x*tileSize-xoC,y*tileSize-yoC,tileSize*g.creatureScale,tileSize*g.creatureScale,0,false);
+    }
+    for (let gridCreature of g.creatures) {
+      if (!gridCreature.hasEntered||gridCreature.agitation<-50) { continue; }
+      let x = gridCreature.x;
+      let y = gridCreature.y;
+
+      // AGITATION
+      cg.c.font = "bold 20px Arial";
+      cg.c.fillStyle = "#000000";
+      cg.c.textAlign = "left";
+      cg.c.textBaseline = "top";
+      cg.c.fillText(gridCreature.agitation,x*tileSize-xo+g.textCornerPadding,y*tileSize-yo+g.textCornerPadding);
     }
     cg.c.font = "50px Arial";
     cg.c.textAlign = "center";
@@ -411,7 +443,6 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
         let y = creatureNum;
         let x = picker.x;
         let buttonHeight = g.width/2;
-        let xo = 0;
         let yo = g.height/2-buttonHeight/2;
         let newButton = cg.createButton({x:x,y:y*buttonHeight-yo,width:g.width,height:buttonHeight,id:"picker"+creature,creature:creature,cursor:"pointer",check:"gameScreen",CGSpace:true,
           down:function(){
@@ -444,7 +475,7 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
       cg.c.font = "20px Arial";
       cg.c.textAlign = "left";
       cg.c.textBaseline = "top";
-      cg.c.fillText(g.creatures[creatureId],x*tileSize-xo,y*tileSize-yo);
+      cg.c.fillText("x"+g.creatures[creatureId],x*tileSize-xo+100,y*tileSize-yo);
     }
   }
 }
@@ -452,7 +483,7 @@ const picker = cg.createGraphic({type:"picker",id:"picker",CGSpace:true,x:600});
 
 ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
   setup(g,graphicInit,cg) {
-    g.levels = [0,1,2,3];
+    g.levels = [0,1,3,4,"test"];
 
     g.widthPerLevel = 250;
     g.hightPerLevel = 200;
