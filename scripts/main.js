@@ -1,3 +1,90 @@
+const levels = {
+  0 : {
+    name : "1",
+    gridSize : 3,
+    creatures : {
+      fox : 1,
+      rabbit : 1
+    },
+    completed : false
+  },
+  1 : {
+    name : "2",
+    gridSize : 4,
+    creatures : {
+      fox : 3,
+      rabbit : 5
+    },
+    completed : false
+  },
+  2 : {
+    name : "3",
+    gridSize : 10,
+    creatures : {
+      fox : 10,
+      rabbit : 10
+    },
+    completed : false
+  },
+  3 : {
+    name : "4",
+    gridSize : 10,
+    creatures : {
+      fox : 6,
+      rabbit : 3
+    },
+    completed : false
+  }
+};
+
+const creatures = {
+  fox : {
+    effectors : [[0,-1],[0,-2],[1,0],[2,0],[0,1],[0,2],[-1,0],[-2,0]],
+    type : "territorial",
+    startingAgitation : 0,
+    image: {file:"creatures.png",crop:[0,0,300,300]}
+  },
+  rabbit : {
+    effectors : [[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]],
+    type : "passive",
+    startingAgitation : 0,
+    image: {file:"creatures.png",crop:[300,0,300,300]}
+  },
+}
+
+for (let creatureId in creatures) {
+  let creature = creatures[creatureId];
+  let newImage = cg.createImage({id:creatureId,file:creature.image.file,crop:creature.image.crop});
+  creature.image = newImage;
+}
+
+const effectorTypes = {
+  "territorial" : {
+    self : 1,
+    inRange : 1,
+    colour : "#0000f9",
+    invertIfSame : false
+  },
+  "aggressive" : {
+    self : -1,
+    inRange : 1,
+    colour : "#ff0000",
+    invertIfSame : false
+  },
+  "passive" : {
+    self : 1,
+    inRange : 0,
+    colour : "#41ff77",
+    invertIfSame : true
+  },
+  "calming" : {
+    self : 0,
+    inRange : -1,
+    colour : "#ffff41",
+    invertIfSame : false
+  }
+}
+
 cg.settings.callbacks.keyDown = function(key) {
   console.log('Key down:', key);
 }
@@ -26,8 +113,13 @@ cg.settings.callbacks.cursorUp = function() {
 }
 
 cg.settings.callbacks.loopBefore = function(cg) {
-  cg.addToLevel(0,cg.graphics.grid);
-  cg.addToLevel(0,cg.graphics.picker);
+  if (screen == "game") {
+    cg.addToLevel(0,cg.graphics.grid);
+    cg.addToLevel(0,cg.graphics.picker);
+    cg.addToLevel(1,cg.graphics.returnToLevels);
+  } else if (screen == "levels") {
+    cg.addToLevel(0,cg.graphics.levelSelector);
+  }
 }
 
 cg.settings.callbacks.loopAfter = function(cg) {
@@ -36,6 +128,8 @@ cg.settings.callbacks.loopAfter = function(cg) {
     cg.drawImage(creatures[grid.creatures[grid.selectedCreature].creature].image,ChoreoGraph.Input.cursor.x,ChoreoGraph.Input.cursor.y,imageSize,imageSize,0,false);
   }
 }
+
+let screen = "levels";
 
 ChoreoGraph.graphicTypes.grid = new class Grid {
   setup(g,graphicInit,cg) {
@@ -74,7 +168,7 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
           let tileSize = g.maxWidth/g.gSize;
           let xo = tileSize*g.gSize/2-tileSize/2;
           let yo = tileSize*g.gSize/2-tileSize/2;
-          let newButton = cg.createButton({x:x*tileSize-xo,y:y*tileSize-yo,width:tileSize,height:tileSize,id:"grid"+x+","+y,gridX:x,gridY:y,cursor:"default",CGSpace:true,
+          let newButton = cg.createButton({x:x*tileSize-xo,y:y*tileSize-yo,width:tileSize,height:tileSize,id:"grid"+x+","+y,gridX:x,gridY:y,cursor:"default",check:"gameScreen",CGSpace:true,
             enter:function(){
               if (grid.selectedCreature !== null) {
                 let creature = grid.creatures[grid.selectedCreature];
@@ -167,6 +261,25 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
         }
         currentCreature.agitation = currentAgitation;
       }
+      let complete = true;
+      let validGame = false;
+      for (let creature of grid.creatures) {
+        validGame = true;
+        if (creature.agitation > 0) {
+          complete = false;
+          break;
+        }
+      }
+      for (let creature of Object.keys(picker.creatures)) {
+        if (picker.creatures[creature] > 0) {
+          complete = false;
+          break;
+        }
+      }
+      if (complete&&validGame&&grid.currentLevel.completed == false) {
+        console.log("Level complete");
+        grid.currentLevel.completed = true;
+      }
     }
   }
   draw(g,cg) {
@@ -223,14 +336,19 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
           effectorsOfTile[xEffector+","+yEffector]++;
         }
         let effectorsOfThisTile = effectorsOfTile[xEffector+","+yEffector];
-        cg.c.fillStyle = effectorTypes[effectorType].colour;
-        cg.c.globalAlpha = 0.8;
-        cg.c.beginPath();
-        // cg.c.arc(xEffector*tileSize-xo+effectorsOfThisTile*30+24,yEffector*tileSize-yo+24,12,0,2*Math.PI);
-        
-        cg.c.arc(xEffector*tileSize-xoC,yEffector*tileSize-yoC,40,0,2*Math.PI);
-        cg.c.fill();
-        cg.c.globalAlpha = 1;
+        if (effectorType=="territorial") {
+          cg.c.strokeStyle = effectorTypes[effectorType].colour;
+          cg.c.lineWidth = 10;
+          cg.c.strokeRect(xEffector*tileSize-xo+cg.c.lineWidth/2,yEffector*tileSize-yo+cg.c.lineWidth/2,tileSize-cg.c.lineWidth,tileSize-cg.c.lineWidth);
+        } else {
+          cg.c.fillStyle = effectorTypes[effectorType].colour;
+          cg.c.globalAlpha = 0.8;
+          cg.c.beginPath();
+          // cg.c.arc(xEffector*tileSize-xo+effectorsOfThisTile*30+24,yEffector*tileSize-yo+24,12,0,2*Math.PI);
+          cg.c.arc(xEffector*tileSize-xoC,yEffector*tileSize-yoC,tileSize/4,0,2*Math.PI);
+          cg.c.fill();
+          cg.c.globalAlpha = 1;
+        }
       }
     }
     for (let gridCreature of g.creatures) {
@@ -242,6 +360,16 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       // CREATURE IMAGE
       let creature = creatures[gridCreature.creature];
       cg.drawImage(creature.image,x*tileSize-xoC,y*tileSize-yoC,tileSize*g.creatureScale,tileSize*g.creatureScale,0,false);
+    }
+    cg.c.font = "50px Arial";
+    cg.c.textAlign = "center";
+    cg.c.textBaseline = "middle";
+    if (grid.currentLevel.completed) {
+      cg.c.fillStyle = "#00ad03";
+      cg.c.fillText("Level Complete",0,350);
+    } else {
+      cg.c.fillStyle = "#ba3934";
+      cg.c.fillText("Level Incomplete",0,350);
     }
   }
 }
@@ -285,16 +413,14 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
         let buttonHeight = g.width/2;
         let xo = 0;
         let yo = g.height/2-buttonHeight/2;
-        let newButton = cg.createButton({x:x,y:y*buttonHeight-yo,width:g.width,height:buttonHeight,id:"picker"+creature,creature:creature,cursor:"pointer",CGSpace:true,
+        let newButton = cg.createButton({x:x,y:y*buttonHeight-yo,width:g.width,height:buttonHeight,id:"picker"+creature,creature:creature,cursor:"pointer",check:"gameScreen",CGSpace:true,
           down:function(){
-            if (this.hovered) {
-              if (g.creatures[this.creature] > 0) {
-                grid.creatures.push({creature:this.creature,x:0,y:0,agitation:0,hidden:true,unhideWhenDropped:true,hasEntered:false});
-                grid.selectedCreature = grid.creatures.length-1;
-                grid.calculateAgitation();
-                grid.updateButtonCursors();
-                picker.update();
-              }
+            if (g.creatures[this.creature] > 0) {
+              grid.creatures.push({creature:this.creature,x:0,y:0,agitation:0,hidden:true,unhideWhenDropped:true,hasEntered:false});
+              grid.selectedCreature = grid.creatures.length-1;
+              grid.calculateAgitation();
+              grid.updateButtonCursors();
+              picker.update();
             }
           }
         });
@@ -324,78 +450,75 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
 }
 const picker = cg.createGraphic({type:"picker",id:"picker",CGSpace:true,x:600});
 
-const levels = [
-  {
-    id : 0,
-    gridSize : 3,
-    creatures : {
-      fox : 1,
-      rabbit : 1
-    }
-  },
-  {
-    id : 1,
-    gridSize : 4,
-    creatures : {
-      fox : 3,
-      rabbit : 5
-    }
-  },
-  {
-    id : 2,
-    gridSize : 10,
-    creatures : {
-      fox : 10,
-      rabbit : 10
+ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
+  setup(g,graphicInit,cg) {
+    g.levels = [0,1,2,3];
+
+    g.widthPerLevel = 250;
+    g.hightPerLevel = 200;
+
+    g.createButtons = function() {
+      let xo = g.levels.length*g.widthPerLevel/2-levelSelector.x;
+      let yo = g.hightPerLevel/2-levelSelector.y;
+      let xoC = g.levels.length*g.widthPerLevel/2-g.widthPerLevel/2;
+      let levelNum = 0;
+      for (let levelId of g.levels) {
+        cg.createButton({x:0-xoC+g.widthPerLevel*levelNum,y:0,width:g.widthPerLevel,height:g.hightPerLevel,id:"level"+levelId,levelId:levelId,cursor:"pointer",check:"levelsScreen",CGSpace:true,
+          down:function(){
+            grid.loadLevel(levels[this.levelId]);
+            screen = "game";
+          }
+        });
+        levelNum++;
+      }
     }
   }
-];
-
-const creatures = {
-  fox : {
-    effectors : [[0,-1],[0,-2],[1,0],[2,0],[0,1],[0,2],[-1,0],[-2,0]],
-    type : "territorial",
-    startingAgitation : 0,
-    image: {file:"creatures.png",crop:[0,0,300,300]}
-  },
-  rabbit : {
-    effectors : [[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]],
-    type : "passive",
-    startingAgitation : 0,
-    image: {file:"creatures.png",crop:[300,0,300,300]}
-  },
+  draw(g,cg) {
+    let xo = g.levels.length*g.widthPerLevel/2;
+    let yo = g.hightPerLevel/2;
+    let xoC = g.levels.length*g.widthPerLevel/2-g.widthPerLevel/2;
+    let levelNum = 0;
+    for (let level of g.levels) {
+      if (levels[level].completed) {
+        cg.c.strokeStyle = "#00ff00";
+      } else {
+        cg.c.strokeStyle = "#ff0000";
+      }
+      cg.c.lineWidth = 10;
+      cg.c.strokeRect(0-xo+g.widthPerLevel*levelNum+20,-yo+20,g.widthPerLevel-40,g.hightPerLevel-40);
+      cg.c.textAlign = "center";
+      cg.c.textBaseline = "middle";
+      cg.c.font = "50px Arial";
+      cg.c.fillStyle = "#000000";
+      cg.c.fillText(levels[level].name,0-xoC+g.widthPerLevel*levelNum,0);
+      levelNum++;
+    }
+  }
 }
+const levelSelector = cg.createGraphic({type:"levelSelector",id:"levelSelector",CGSpace:true});
+levelSelector.createButtons();
 
-for (let creatureId in creatures) {
-  let creature = creatures[creatureId];
-  let newImage = cg.createImage({id:creatureId,file:creature.image.file,crop:creature.image.crop});
-  creature.image = newImage;
+ChoreoGraph.graphicTypes.returnToLevels = new class ReturnToLevels {
+  draw(g,cg) {
+    cg.c.fillStyle = cg.buttons.returnToLevels.hovered ? "#555555" : "#000000";
+    cg.c.font = "50px Arial";
+    cg.c.textAlign = "center";
+    cg.c.textBaseline = "middle";
+    cg.c.fillText("Return To Levels",0,50);
+  }
 }
+const returnToLevels = cg.createGraphic({type:"returnToLevels",id:"returnToLevels",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0});
 
-const effectorTypes = {
-  "territorial" : {
-    self : 1,
-    inRange : 1,
-    colour : "#0000f9",
-    invertIfSame : false
-  },
-  "aggressive" : {
-    self : -1,
-    inRange : 1,
-    colour : "#ff0000",
-    invertIfSame : false
-  },
-  "passive" : {
-    self : 1,
-    inRange : 0,
-    colour : "#41ff77",
-    invertIfSame : true
-  },
-  "calming" : {
-    self : 0,
-    inRange : -1,
-    colour : "#ffff41",
-    invertIfSame : false
+cg.createButton({x:0,y:50,width:400,height:100,id:"returnToLevels",cursor:"pointer",check:"gameScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0,
+  down:function(){
+    screen = "levels";
+  }
+});
+
+cg.settings.callbacks.updateButtonChecks = function(cg) {
+  return {
+    "gameScreen" : screen=="game",
+    "levelsScreen" : screen=="levels"
   }
 }
 
