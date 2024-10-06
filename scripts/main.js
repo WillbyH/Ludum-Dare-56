@@ -1070,7 +1070,7 @@ ChoreoGraph.graphicTypes.credits = new class credits {
     cg.c.restore();
   }
 }
-const credits = cg.createGraphic({type:"credits",id:"credits",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0.5});
+const credits = cg.createGraphic({type:"credits",id:"credits",CGSpace:true,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0.5});
 
 cg.createButton({x:0,y:-80,width:270,height:120,id:"credits",cursor:"pointer",check:"levelsScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1,
   down:function(){
