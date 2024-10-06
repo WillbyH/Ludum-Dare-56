@@ -18,6 +18,8 @@ cg.createImage({id:"foxrabbit",file:"decoratives/foxrabbit.png"});
 cg.createImage({id:"capybaraspider",file:"decoratives/capybaraspider.png"});
 cg.createImage({id:"snakeTutorial",file:"decoratives/snake.png"});
 cg.createImage({id:"level7",file:"decoratives/level_7_message.png"});
+cg.createImage({id:"shopping",file:"decoratives/shopping_list.png"});
+cg.createImage({id:"fun_fact",file:"decoratives/fun_fact.png"});
 
 ChoreoGraph.AudioController.createSound("complete","audio/complete.mp3");
 ChoreoGraph.AudioController.createSound("down0","audio/down0.mp3");
@@ -149,6 +151,20 @@ const levels = {
     viewed : false,
     savedData : [],
     locked : false
+  },
+  "bonus" : {
+    name : "8",
+    gridSize : 5,
+    creatures : {
+      rabbit : 9,
+      snake : 8,
+      fox: 1,
+      capybara: 3
+    },
+    completed : false,
+    viewed : false,
+    savedData : [],
+    locked : false
   }
 };
 
@@ -218,9 +234,26 @@ const effectorTypes = {
   }
 }
 
-// cg.settings.callbacks.keyDown = function(key) {
-//   console.log('Key down:', key);
-// }
+let wordCode = "";
+
+cg.settings.callbacks.keyDown = function(key) {
+  if (key=="t"&&wordCode!="tes") { wordCode = ""; }
+  if (key=="b") { wordCode = ""; }
+  wordCode += key;
+  if (wordCode=="test") {
+    grid.loadLevel(levels["test"]);
+    screen = "game";
+  } else if (wordCode=="bonus") {
+    grid.loadLevel(levels["bonus"]);
+    screen = "game";
+  }
+}
+
+cg.settings.callbacks.cursorDown = function() {
+  if (screen=="start"&&cg.ready) {
+    screen = "levels";
+  }
+}
 
 cg.settings.callbacks.cursorUp = function() {
   let gridHovered = false;
@@ -270,7 +303,9 @@ cg.settings.callbacks.loopBefore = function(cg) {
   cg.graphics.shine.width = cg.cw/cg.z;
   cg.graphics.shine.height = cg.ch/cg.z;
   cg.addToLevel(0,cg.graphics.shine);
-  if (screen == "game") {
+  if (screen == "start") {
+    cg.addToLevel(0,cg.graphics.start);
+  } else if (screen == "game") {
     cg.addToLevel(0,cg.graphics.grid);
     cg.addToLevel(0,cg.graphics.picker);
     cg.addToLevel(1,cg.graphics.returnToLevels);
@@ -283,7 +318,7 @@ cg.settings.callbacks.loopBefore = function(cg) {
     cg.addToLevel(1,cg.graphics.returnToLevels);
   }
   cg.addToLevel(2,cg.graphics.confetti);
-  cg.addToLevel(2,cg.graphics.mute);
+  if (screen != "start") { cg.addToLevel(2,cg.graphics.mute); }
 }
 
 cg.settings.callbacks.loopAfter = function(cg) {
@@ -294,7 +329,7 @@ cg.settings.callbacks.loopAfter = function(cg) {
   }
 }
 
-let screen = "levels";
+let screen = "start";
 
 ChoreoGraph.graphicTypes.grid = new class Grid {
   setup(g,graphicInit,cg) {
@@ -365,8 +400,8 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
                     creature.hidden = false;
                   }
                   creature.hasEntered = true;
-                  grid.calculateAgitation();
                 }
+                grid.calculateAgitation();
               }
             },
             down:function(event){
@@ -432,7 +467,7 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
           let y = currentCreature.y+effector[1];
           if (x >= 0 && x < g.gSize && y >= 0 && y < g.gSize) { // If in bounds
             for (let otherCreature of g.creatures) { // For each other creature
-              if (otherCreature.hidden) { continue; }
+              if (currentCreature.hasEntered==false||otherCreature.hasEntered==false) { continue; }
               if (otherCreature.x == x && otherCreature.y == y) { // If other creature is in range
                 let effectorType = effectorTypes[creatures[currentCreature.creature].type];
                 let currentCreatureAgitationChange = effectorType.self;
@@ -526,10 +561,10 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
         if (cg.buttons["grid"+creatureX+","+creatureY]?.hovered) {
           cg.c.globalAlpha = 1;
         } else {
-          cg.c.globalAlpha = 0.2;
+          cg.c.globalAlpha = 0.3;
         }
         if (grid.currentLevel.locked) {
-          cg.c.globalAlpha = Math.max(1-(cg.clock-g.currentLevel.lockedTime)/2000,0)*0.2;
+          cg.c.globalAlpha = Math.max(1-(cg.clock-g.currentLevel.lockedTime)/2000,0)*0.3;
         }
         if (effectorType=="territorial") {
           cg.c.strokeStyle = effectorTypes[effectorType].colour;
@@ -542,11 +577,13 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
           cg.c.roundRect(xEffector*tileSize-xo+cg.c.lineWidth*1.5,yEffector*tileSize-yo+cg.c.lineWidth*1.5,tileSize-cg.c.lineWidth*3,tileSize-cg.c.lineWidth*3,5);
           cg.c.stroke();
         } else if (effectorType=="aggressive") {
+          if (cg.c.globalAlpha<1) { cg.c.globalAlpha = cg.c.globalAlpha*2;}
           cg.c.fillStyle = effectorTypes[effectorType].colour;
           cg.c.beginPath();
           cg.c.roundRect(xEffector*tileSize-xo+tileSize/4,yEffector*tileSize-yo+tileSize/4,tileSize*0.5,tileSize*0.5,5);
           cg.c.fill();
         } else if (effectorType=="passive") {
+          if (cg.c.globalAlpha<1) { cg.c.globalAlpha = cg.c.globalAlpha*0.3;}
           cg.c.fillStyle = effectorTypes[effectorType].colour;
           cg.c.beginPath();
           cg.c.arc(xEffector*tileSize-xoC,yEffector*tileSize-yoC,tileSize/3.5,0,2*Math.PI);
@@ -640,13 +677,14 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       // cg.c.fillText(gridCreature.agitation,x*tileSize-xo+g.textCornerPadding,y*tileSize-yo+g.textCornerPadding);
     }
     let spoonsScaler = 0.8;
+    let shoppingScaler = 0.45;
     cg.c.globalAlpha = 0.7;
     if (grid.currentLevel.name=="2") {
       cg.drawImage(cg.images.spoons,850,-700,791*spoonsScaler,1150*spoonsScaler,5,false);
     } else if (grid.currentLevel.name=="3") {
       cg.drawImage(cg.images.spoons,-700,800,791*spoonsScaler,1150*spoonsScaler,5,false);
     } else if (grid.currentLevel.name=="4") {
-      cg.drawImage(cg.images.spoons,900,850,791*spoonsScaler,1150*spoonsScaler,-7,false);
+      cg.drawImage(cg.images.shopping,700,370,791*shoppingScaler,1150*shoppingScaler,-7,false);
     }
     cg.c.globalAlpha = 1;
     let tutorialScaler = 0.45;
@@ -661,7 +699,7 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
     }
 
     cg.c.font = "170px MgOpenModata";
-    cg.c.fillStyle = ["#e93526","#fb9938","#fdd816","#17912a","#10caf3","#a871d9","#ff47be"][parseInt(grid.currentLevel.name)-1];
+    cg.c.fillStyle = ["#e93526","#fb9938","#fdd816","#17912a","#10caf3","#a871d9","#ff47be","#e93526","#fb9938","#fdd816","#17912a","#10caf3","#a871d9","#ff47be"][parseInt(grid.currentLevel.name)-1];
     cg.c.save();
     cg.c.translate(330,-300);
     cg.c.rotate((20)*Math.PI/180);
@@ -866,6 +904,11 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
       cg.c.restore();
       letterNum++;
     }
+    if (levels[1].viewed) {
+      let funFactScaler = 0.5;
+      cg.c.globalAlpha = 0.9;
+      cg.drawImage(cg.images.fun_fact,-700,350,800*funFactScaler,721*funFactScaler,-7,false);
+    }
   }
 }
 const levelSelector = cg.createGraphic({type:"levelSelector",id:"levelSelector",CGSpace:true});
@@ -1035,6 +1078,21 @@ cg.createButton({x:0,y:-80,width:270,height:120,id:"credits",cursor:"pointer",ch
   }
 });
 
+ChoreoGraph.graphicTypes.start = new class start {
+  draw(g,cg) {
+    let logoScaler = 0.5;
+    cg.drawImage(cg.images.logo,0,-50,3000*logoScaler,2000*logoScaler,0,false);
+    cg.c.textAlign = "center";
+    cg.c.textBaseline = "middle";
+    cg.c.font = "50px MgOpenModata";
+    cg.c.fillStyle = "#1d1d1d";
+    if (cg.ready) {
+      cg.c.fillText("Click anywhere to start",0,300);
+    }
+  }
+}
+const start = cg.createGraphic({type:"start",id:"start",CGSpace:true,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0.5});
+
 ChoreoGraph.graphicTypes.mute = new class mute {
   draw(g,cg) {
     cg.drawImage(cg.images.speaker,55,55,100,100,7,false);
@@ -1084,5 +1142,17 @@ cg.cnvs.addEventListener("contextmenu", function(event) { event.preventDefault()
 cg.camera.scaleMode = "maximum";
 cg.camera.maximumSize = 1920;
 cg.camera.WHRatio = 1;
+
+cg.settings.callbacks.loadingLoop = function(cg,loadedImages) {
+  let logoScaler = 0.5;
+  cg.c.save();
+  cg.c.translate(cg.cw/2,cg.ch/2);
+  cg.c.textAlign = "center";
+  cg.c.textBaseline = "middle";
+  cg.c.font = "50px MgOpenModata";
+  cg.c.fillStyle = "#1d1d1d";
+  cg.c.fillText("loading images " + loadedImages + "/" + Object.keys(cg.images).length,0,300);
+  cg.c.restore();
+}
 
 ChoreoGraph.start();
