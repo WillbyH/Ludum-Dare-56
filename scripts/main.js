@@ -5,6 +5,8 @@ cg.createImage({id:"grid5",file:"grid-5.png"});
 cg.createImage({id:"grid4",file:"grid-4.png"});
 cg.createImage({id:"grid3",file:"grid-3.png"});
 cg.createImage({id:"reset",file:"reset.png"});
+cg.createImage({id:"next",file:"next.png"});
+cg.createImage({id:"win",file:"win.png"});
 
 const levels = {
   0 : {
@@ -15,7 +17,9 @@ const levels = {
       rabbit : 1
     },
     completed : false,
-    savedData : []
+    viewed : false,
+    savedData : [],
+    locked : false
   },
   2 : {
     name : "2",
@@ -25,7 +29,9 @@ const levels = {
       rabbit : 4
     },
     completed : false,
-    savedData : []
+    viewed : false,
+    savedData : [],
+    locked : false
   },
   1 : {
     name : "3",
@@ -35,7 +41,9 @@ const levels = {
       rabbit : 5
     },
     completed : false,
-    savedData : []
+    viewed : false,
+    savedData : [],
+    locked : false
   },
   "test" : {
     name : "x",
@@ -48,7 +56,9 @@ const levels = {
       snake : 50
     },
     completed : false,
-    savedData : []
+    viewed : false,
+    savedData : [],
+    locked : false
   },
   3 : {
     name : "4",
@@ -58,7 +68,9 @@ const levels = {
       rabbit : 3
     },
     completed : false,
-    savedData : []
+    viewed : false,
+    savedData : [],
+    locked : false
   },
   4 : {
     name : "5",
@@ -70,7 +82,9 @@ const levels = {
       spider : 1
     },
     completed : false,
-    savedData : []
+    viewed : false,
+    savedData : [],
+    locked : false
   },
   5 : {
     name : "6",
@@ -81,7 +95,24 @@ const levels = {
       spider : 2
     },
     completed : false,
-    savedData : []
+    viewed : false,
+    savedData : [],
+    locked : false
+  },
+  6 : {
+    name : "7",
+    gridSize : 5,
+    creatures : {
+      rabbit : 11,
+      snake : 2,
+      spider : 1,
+      fox: 2,
+      capybara: 1
+    },
+    completed : false,
+    viewed : false,
+    savedData : [],
+    locked : false
   }
 };
 
@@ -151,9 +182,9 @@ const effectorTypes = {
   }
 }
 
-cg.settings.callbacks.keyDown = function(key) {
-  console.log('Key down:', key);
-}
+// cg.settings.callbacks.keyDown = function(key) {
+//   console.log('Key down:', key);
+// }
 
 cg.settings.callbacks.cursorUp = function() {
   let gridHovered = false;
@@ -180,11 +211,11 @@ cg.settings.callbacks.cursorUp = function() {
     } else if (gridHovered) { // Dropped on grid
       ChoreoGraph.Input.hoveredCG.cnvs.style.cursor = "grab";
       grid.creatures[grid.selectedCreature].hidden = false;
-      console.log("show")
     }
   }
   picker.update();
   grid.calculateAgitation();
+  cg.createEvent({duration:1,end:function(){grid.calculateAgitation();},loop:false});
   grid.selectedCreature = null;
   grid.updateButtonCursors();
 }
@@ -207,17 +238,18 @@ cg.settings.callbacks.loopAfter = function(cg) {
   if (grid.creatures[grid.selectedCreature]?.hidden) { // Draw held creature
     let imageSize = grid.maxWidth/grid.gSize*grid.creatureScale*cg.z;
     cg.drawImage(creatures[grid.creatures[grid.selectedCreature].creature].image,ChoreoGraph.Input.cursor.x,ChoreoGraph.Input.cursor.y,imageSize,imageSize,0,false);
+    grid.nextCompleteCheck = cg.clock+700;
   }
 }
 
-let screen = "game";
+let screen = "levels";
 
 ChoreoGraph.graphicTypes.grid = new class Grid {
   setup(g,graphicInit,cg) {
     g.gSize = 3;
     g.maxWidth = 600;
 
-    g.textCornerPadding = 4;
+    g.textCornerPadding = 9;
 
     g.creatureScale = 0.8;
     g.creatures = [{creature:"fox",x:0,y:0,agitation:0},{creature:"rabbit",x:2,y:2,agitation:0}];
@@ -227,9 +259,11 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
     g.gridButtons = [];
 
     g.nextCompleteCheck = 0;
+    g.isInCompleteState = false;
 
     g.resetCurrentLevel = function() {
       grid.currentLevel.savedData = [];
+      grid.currentLevel.locked = false;
       grid.loadLevel(grid.currentLevel);
     }
     g.loadLevel = function(level) {
@@ -281,6 +315,7 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
               }
             },
             down:function(){
+              if (grid.currentLevel.locked) { return; }
               let creatureIndex = 0;
               for (let creature of grid.creatures) {
                 if (creature.x == this.gridX && creature.y == this.gridY) {
@@ -319,6 +354,9 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
         } else {
           button.cursor = "default";
         }
+        if (grid.currentLevel.locked) {
+          button.cursor = "default";
+        }
       }
     }
     g.calculateAgitation = function() {
@@ -331,6 +369,7 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
           let y = currentCreature.y+effector[1];
           if (x >= 0 && x < g.gSize && y >= 0 && y < g.gSize) { // If in bounds
             for (let otherCreature of g.creatures) { // For each other creature
+              if (otherCreature.hidden) { continue; }
               if (otherCreature.x == x && otherCreature.y == y) { // If other creature is in range
                 let effectorType = effectorTypes[creatures[currentCreature.creature].type];
                 let currentCreatureAgitationChange = effectorType.self;
@@ -346,30 +385,40 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
           }
         }
       }
-      if (cg.clock>g.nextCompleteCheck) {
-        let complete = true;
-        let validGame = false;
-        for (let creature of grid.creatures) {
-          validGame = true;
-          if (creature.agitation > 0) {
-            complete = false;
-            break;
-          }
+      let complete = true;
+      let validGame = false;
+      for (let creature of grid.creatures) {
+        validGame = true;
+        if (creature.agitation > 0) {
+          complete = false;
+          break;
         }
-        for (let creature of Object.keys(picker.creatures)) {
-          if (picker.creatures[creature] > 0) {
-            complete = false;
-            break;
-          }
+      }
+      for (let creature of Object.keys(picker.creatures)) {
+        if (picker.creatures[creature] > 0) {
+          complete = false;
+          break;
         }
-        if (complete&&validGame&&grid.currentLevel.completed == false) {
-          console.log("Level complete");
-          grid.currentLevel.completed = true;
-        }
+      }
+      if (complete&&validGame&&grid.isInCompleteState==false) {
+        console.info("Level complete");
+        grid.isInCompleteState = true;
+      } else {
+        grid.isInCompleteState = false;
       }
     }
   }
   draw(g,cg) {
+    g.currentLevel.viewed = true;
+    if (g.currentLevel.locked&&!g.currentLevel.completed) {
+      console.warn("Level unlocked because the state was weird");
+      g.currentLevel.locked = false;
+    }
+    if (cg.clock>g.nextCompleteCheck&&g.isInCompleteState&&g.currentLevel.locked==false) {
+      g.currentLevel.completed = true;
+      g.currentLevel.locked = true;
+      g.currentLevel.lockedTime = cg.clock;
+    }
     let markers = {};
     for (let effectorType of Object.keys(effectorTypes)) {
       markers[effectorType] = [];
@@ -413,6 +462,9 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
           cg.c.globalAlpha = 1;
         } else {
           cg.c.globalAlpha = 0.2;
+        }
+        if (grid.currentLevel.locked) {
+          cg.c.globalAlpha = Math.max(1-(cg.clock-g.currentLevel.lockedTime)/2000,0)*0.2;
         }
         if (effectorType=="territorial") {
           cg.c.strokeStyle = effectorTypes[effectorType].colour;
@@ -473,25 +525,53 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       let y = gridCreature.y;
 
       // AGITATION
-      cg.c.fillStyle = "#ffffff";
-      cg.c.beginPath();
-      cg.c.arc(x*tileSize-xo+g.textCornerPadding+5.5,y*tileSize-yo+g.textCornerPadding+8,10,0,2*Math.PI);
-      cg.c.fill();
-      cg.c.strokeStyle = gridCreature.agitation > 0 ? "#ff0000" : "#00ff00";
+      // cg.c.fillStyle = "#ffffff";
+      // cg.c.beginPath();
+      // cg.c.arc(x*tileSize-xo+g.textCornerPadding+5.5,y*tileSize-yo+g.textCornerPadding+8,10,0,2*Math.PI);
+      // cg.c.fill();
       let amount = Math.abs(gridCreature.agitation);
-      if (amount==0) { amount = 1; }
+      if (gridCreature.agitation<=0) { amount++; }
+      if (amount>5) {
+        cg.c.lineWidth = 1.5;
+        cg.c.fillStyle = gridCreature.agitation > 0 ? "#ff0000" : "#00a24e";
+        cg.c.strokeStyle = "#ffffff";
+        let newXO = 0.5;
+        let newYO = 1.5;
+        cg.c.beginPath();
+        cg.c.moveTo(x*tileSize-xo-g.textCornerPadding-9+tileSize+newXO,y*tileSize-yo+g.textCornerPadding+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-5+tileSize+newXO,y*tileSize-yo+g.textCornerPadding+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-5+tileSize+newXO,y*tileSize-yo+g.textCornerPadding+4+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-5+tileSize+4+newXO,y*tileSize-yo+g.textCornerPadding+4+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-5+tileSize+4+newXO,y*tileSize-yo+g.textCornerPadding+8+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-5+tileSize+newXO,y*tileSize-yo+g.textCornerPadding+8+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-5+tileSize+newXO,y*tileSize-yo+g.textCornerPadding+12+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-9+tileSize+newXO,y*tileSize-yo+g.textCornerPadding+12+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-9+tileSize+newXO,y*tileSize-yo+g.textCornerPadding+8+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-13+tileSize+newXO,y*tileSize-yo+g.textCornerPadding+8+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-13+tileSize+newXO,y*tileSize-yo+g.textCornerPadding+4+newYO);
+        cg.c.lineTo(x*tileSize-xo-g.textCornerPadding-9+tileSize+newXO,y*tileSize-yo+g.textCornerPadding+4+newYO);
+        cg.c.closePath();
+        cg.c.fill();
+        cg.c.stroke();
+      }
+      amount = Math.min(amount,5);
+      cg.c.fillStyle = gridCreature.agitation > 0 ? "#ff0000" : "#00a24e";
+      cg.c.strokeStyle = "#ffffff";
       cg.c.beginPath();
       for (let i=0;i<amount;i++) {
-        // cg.c.arc(x*tileSize-xo+g.textCornerPadding+5.5,y*tileSize-yo+g.textCornerPadding+8,10,0,2*Math.PI);
+        cg.c.moveTo(x*tileSize-xo+g.textCornerPadding+5.5+i*18+7,y*tileSize-yo+g.textCornerPadding+8);
+        cg.c.arc(x*tileSize-xo+g.textCornerPadding+5.5+i*18,y*tileSize-yo+g.textCornerPadding+8,7,0,2*Math.PI);
       }
       cg.c.fill();
-      cg.c.lineWidth = 3;
+      cg.c.lineWidth = 2;
       cg.c.stroke();
-      cg.c.font = "bold 20px Arial";
-      cg.c.fillStyle = "#000000";
-      cg.c.textAlign = "left";
-      cg.c.textBaseline = "top";
-      cg.c.fillText(gridCreature.agitation,x*tileSize-xo+g.textCornerPadding,y*tileSize-yo+g.textCornerPadding);
+      // cg.c.lineWidth = 3;
+      // cg.c.stroke();
+      // cg.c.font = "bold 20px Arial";
+      // cg.c.fillStyle = "#000000";
+      // cg.c.textAlign = "left";
+      // cg.c.textBaseline = "top";
+      // cg.c.fillText(gridCreature.agitation,x*tileSize-xo+g.textCornerPadding,y*tileSize-yo+g.textCornerPadding);
     }
     cg.c.font = "50px Arial";
     cg.c.textAlign = "center";
@@ -588,7 +668,7 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
         }
       }
       cg.c.fillStyle = "#000000";
-      cg.c.font = "20px Arial";
+      cg.c.font = "20px MgOpenModata";
       cg.c.textAlign = "left";
       cg.c.textBaseline = "top";
       if (g.creatures[creatureId] > 0) {
@@ -610,7 +690,7 @@ const picker = cg.createGraphic({type:"picker",id:"picker",CGSpace:true,x:600});
 
 ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
   setup(g,graphicInit,cg) {
-    g.levels = [0,2,1,3,4,5,"test"];
+    g.levels = [0,2,1,3,4,5,6];
 
     g.widthPerLevel = 250;
     g.hightPerLevel = 200;
@@ -636,7 +716,7 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
   draw(g,cg) {
     let xoC = g.levels.length*g.widthPerLevel/2-g.widthPerLevel/2;
     let levelNum = 0;
-    let completedPrevious = false;
+    let viewedPrevious = false;
     for (let level of g.levels) {
       if (levels[level].completed) {
         cg.c.strokeStyle = "#00ff00";
@@ -652,10 +732,10 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
       if (cg.buttons["level"+level].hovered) {
         cg.c.fillStyle = ChoreoGraph.colourLerp(cg.c.fillStyle,"#000000",0.4);
       }
-      if (!completedPrevious&&levelNum!=0) {
+      if (!viewedPrevious&&levelNum!=0) {
         cg.c.fillStyle = "#999999";
       }
-      completedPrevious = false;
+      viewedPrevious = false;
       cg.c.save();
       cg.c.translate(0-xoC+g.widthPerLevel*levelNum,12);
       let rotation = [4,-3,12,-12,6,-6,0][levelNum];
@@ -671,8 +751,8 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
       cg.c.strokeText(levels[level].name,0,0);
       cg.c.restore();
       levelNum++;
-      if (levels[level].completed) {
-        completedPrevious = true;
+      if (levels[level].viewed) {
+        viewedPrevious = true;
       }
     }
     let letterNum = 0;
@@ -713,7 +793,19 @@ ChoreoGraph.graphicTypes.levelControls = new class levelControls {
     if (cg.buttons.reset.hovered) {
       imageScale = 0.19;
     }
-    cg.drawImage(cg.images.reset,150,-80,1500*imageScale,600*imageScale,0,false);
+    cg.drawImage(cg.images.reset,-140,-80,1500*imageScale,600*imageScale,0,false);
+    imageScale = 0.2;
+    if (cg.buttons.next.hovered) {
+      imageScale = 0.19;
+    }
+    if (!grid.currentLevel.completed) {
+      cg.c.globalAlpha = 0.2;
+    }
+    if (grid.currentLevel.name===levels[levelSelector.levels[levelSelector.levels.length-1]].name) { // Is last level
+      cg.drawImage(cg.images.win,150,-80,1500*imageScale,600*imageScale,0,false);
+    } else {
+      cg.drawImage(cg.images.next,150,-80,1500*imageScale,600*imageScale,0,false);
+    }
   }
 }
 const levelControls = cg.createGraphic({type:"levelControls",id:"levelControls",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1});
@@ -726,15 +818,34 @@ cg.createButton({x:0,y:70,width:400,height:120,id:"returnToLevels",cursor:"point
   }
 });
 
-cg.createButton({x:150,y:-80,width:270,height:120,id:"reset",cursor:"pointer",check:"gameScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1,
+cg.createButton({x:-150,y:-80,width:270,height:120,id:"reset",cursor:"pointer",check:"gameScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1,
   down:function(){
     grid.resetCurrentLevel();
+  }
+});
+
+cg.createButton({x:150,y:-80,width:270,height:120,id:"next",cursor:"pointer",check:"gameScreen-levelComplete",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1,
+  down:function(){
+    grid.currentLevel.savedData = Array.from(grid.creatures);
+    if (grid.currentLevel.name===levels[levelSelector.levels[levelSelector.levels.length-1]].name) { // Is last level
+      screen = "win";
+    } else {
+      for (let i = 0; i < levelSelector.levels.length; i++) {
+        if (levels[levelSelector.levels[i]].name == grid.currentLevel.name) {
+          if (i+1 < levelSelector.levels.length) {
+            grid.loadLevel(levels[levelSelector.levels[i+1]]);
+          }
+          break;
+        }
+      }
+    }
   }
 });
 
 cg.settings.callbacks.updateButtonChecks = function(cg) {
   return {
     "gameScreen" : screen=="game",
+    "gameScreen-levelComplete" : screen=="game"&&grid.currentLevel.completed,
     "levelsScreen" : screen=="levels"
   }
 }
