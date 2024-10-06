@@ -8,8 +8,12 @@ cg.createImage({id:"reset",file:"reset.png"});
 cg.createImage({id:"next",file:"next.png"});
 cg.createImage({id:"win",file:"win.png"});
 cg.createImage({id:"star",file:"star.png"});
+cg.createImage({id:"credits",file:"credits.png"});
 
+cg.createImage({id:"playtesters",file:"decoratives/playtesters.png"});
 cg.createImage({id:"spoons",file:"decoratives/spoons.png"});
+cg.createImage({id:"foxrabbit",file:"decoratives/foxrabbit.png"});
+cg.createImage({id:"capybaraspider",file:"decoratives/capybaraspider.png"});
 
 ChoreoGraph.AudioController.createSound("complete","audio/complete.mp3");
 ChoreoGraph.AudioController.createSound("music","audio/ld56.mp3",{autoplay:true,volume:0.5,loop:true});
@@ -226,6 +230,15 @@ cg.settings.callbacks.cursorUp = function() {
 }
 
 cg.settings.callbacks.loopBefore = function(cg) {
+  if (cg.cw/cg.ch>3) {
+    cg.camera.maximumSize = 4000;
+  } else if (cg.cw/cg.ch>2.65) {
+    cg.camera.maximumSize = 3000;
+  } else if (cg.cw/cg.ch>2.2) {
+    cg.camera.maximumSize = 2500;
+  } else {
+    cg.camera.maximumSize = 1920;
+  }
   cg.graphics.shine.width = cg.cw/cg.z;
   cg.graphics.shine.height = cg.ch/cg.z;
   cg.addToLevel(0,cg.graphics.shine);
@@ -236,6 +249,10 @@ cg.settings.callbacks.loopBefore = function(cg) {
     cg.addToLevel(1,cg.graphics.levelControls);
   } else if (screen == "levels") {
     cg.addToLevel(0,cg.graphics.levelSelector);
+    cg.addToLevel(0,cg.graphics.levelSelectControls);
+  } else if (screen == "credits") {
+    cg.addToLevel(0,cg.graphics.credits);
+    cg.addToLevel(1,cg.graphics.returnToLevels);
   }
   cg.addToLevel(2,cg.graphics.confetti);
 }
@@ -248,7 +265,7 @@ cg.settings.callbacks.loopAfter = function(cg) {
   }
 }
 
-let screen = "game";
+let screen = "levels";
 
 ChoreoGraph.graphicTypes.grid = new class Grid {
   setup(g,graphicInit,cg) {
@@ -592,12 +609,20 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       // cg.c.fillText("Level Incomplete",0,350);
     }
     let spoonsScaler = 0.8;
-    if (grid.currentLevel.name=="1") {
+    cg.c.globalAlpha = 0.7;
+    if (grid.currentLevel.name=="2") {
       cg.drawImage(cg.images.spoons,800,-700,791*spoonsScaler,1150*spoonsScaler,5,false);
-    } else if (grid.currentLevel.name=="2") {
-      cg.drawImage(cg.images.spoons,-700,700,791*spoonsScaler,1150*spoonsScaler,5,false);
     } else if (grid.currentLevel.name=="3") {
-      cg.drawImage(cg.images.spoons,900,900,791*spoonsScaler,1150*spoonsScaler,-7,false);
+      cg.drawImage(cg.images.spoons,-700,800,791*spoonsScaler,1150*spoonsScaler,5,false);
+    } else if (grid.currentLevel.name=="4") {
+      cg.drawImage(cg.images.spoons,900,850,791*spoonsScaler,1150*spoonsScaler,-7,false);
+    }
+    cg.c.globalAlpha = 1;
+    let tutorialScaler = 0.45;
+    if (["1","2","3","4"].includes(grid.currentLevel.name)) {
+      cg.drawImage(cg.images.foxrabbit,-650,0,1000*tutorialScaler,1500*tutorialScaler,5,false);
+    } else if (["5"].includes(grid.currentLevel.name)) {
+      cg.drawImage(cg.images.capybaraspider,-650,0,1000*tutorialScaler,1500*tutorialScaler,-5,false);
     }
   }
 }
@@ -856,7 +881,7 @@ ChoreoGraph.graphicTypes.returnToLevels = new class ReturnToLevels {
 const returnToLevels = cg.createGraphic({type:"returnToLevels",id:"returnToLevels",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0});
 
 
-cg.createButton({x:0,y:70,width:400,height:120,id:"returnToLevels",cursor:"pointer",check:"gameScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0,
+cg.createButton({x:0,y:70,width:400,height:120,id:"returnToLevels",cursor:"pointer",check:"gameAndCreditsScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0,
   down:function(){
     grid.currentLevel.savedData = Array.from(grid.creatures);
     screen = "levels";
@@ -886,6 +911,17 @@ ChoreoGraph.graphicTypes.levelControls = new class levelControls {
 }
 const levelControls = cg.createGraphic({type:"levelControls",id:"levelControls",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1});
 
+ChoreoGraph.graphicTypes.levelSelectControls = new class levelSelectControls {
+  draw(g,cg) {
+    let imageScale = 0.2;
+    if (cg.buttons.reset.hovered) {
+      imageScale = 0.19;
+    }
+    cg.drawImage(cg.images.credits,0,-80,1500*imageScale,600*imageScale,0,false);
+  }
+}
+const levelSelectControls = cg.createGraphic({type:"levelSelectControls",id:"levelSelectControls",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1});
+
 cg.createButton({x:-150,y:-80,width:270,height:120,id:"reset",cursor:"pointer",check:"gameScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1,
   down:function(){
     grid.resetCurrentLevel();
@@ -911,24 +947,34 @@ cg.createButton({x:150,y:-80,width:270,height:120,id:"next",cursor:"pointer",che
 });
 
 ChoreoGraph.graphicTypes.credits = new class credits {
+  setup(g,graphicInit,cg) {
+    g.randomIntA = Math.floor(Math.random()*levelSelector.levels.length);
+    g.randomIntB = Math.floor(Math.random()*26);
+  }
   draw(g,cg) {
-    let imageScale = 0.2;
-    if (cg.buttons.reset.hovered) {
-      imageScale = 0.19;
-    }
-    cg.drawImage(cg.images.reset,-140,-80,1500*imageScale,600*imageScale,0,false);
-    imageScale = 0.2;
-    if (cg.buttons.next.hovered) {
-      imageScale = 0.19;
-    }
-    if (!grid.currentLevel.completed) {
-      cg.c.globalAlpha = 0.2;
-    }
-    if (grid.currentLevel.name===levels[levelSelector.levels[levelSelector.levels.length-1]].name) { // Is last level
-      cg.drawImage(cg.images.win,150,-80,1500*imageScale,600*imageScale,0,false);
-    } else {
-      cg.drawImage(cg.images.next,150,-80,1500*imageScale,600*imageScale,0,false);
-    }
+    let playtestersScale = 0.35;
+    cg.drawImage(cg.images.playtesters,500,0,1600*playtestersScale,1600*playtestersScale,5,false);
+    cg.c.fillStyle = "#1d1d1d";
+    cg.c.textAlign = "center";
+    cg.c.textBaseline = "middle";
+    cg.c.font = "100px MgOpenModata";
+    cg.c.fillText("LOGO",-400,-80);
+    cg.c.font = "50px MgOpenModata";
+    cg.c.fillText("Created by Willby",-400,80);
+    cg.drawImage(cg.images.capybara,-700,350,220,220,-20,false);
+
+    cg.c.font = "170px MgOpenModata";
+    // cg.c.fillStyle = "#a871d9";
+    cg.c.fillStyle = levelSelector.levelsRandom[g.randomIntA];
+    cg.c.save();
+    cg.c.translate(500,-380);
+    cg.c.rotate((30)*Math.PI/180);
+    cg.c.fillText(["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"][g.randomIntB],0,0);
+    cg.c.filter = "blur(8px)";
+    cg.c.strokeStyle = "#888888";
+    cg.c.lineWidth = 3;
+    cg.c.strokeText(["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"][g.randomIntB],0,0);
+    cg.c.restore();
   }
 }
 const credits = cg.createGraphic({type:"credits",id:"credits",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0.5});
@@ -936,6 +982,7 @@ const credits = cg.createGraphic({type:"credits",id:"credits",CGSpace:false,canv
 cg.settings.callbacks.updateButtonChecks = function(cg) {
   let output = {
     "gameScreen" : screen=="game",
+    "gameAndCreditsScreen" : screen=="game"||screen=="credits",
     "gameScreen-levelComplete" : screen=="game"&&grid.currentLevel.completed,
     "levelsScreen" : screen=="levels"
   }
