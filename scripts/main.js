@@ -9,13 +9,31 @@ cg.createImage({id:"next",file:"next.png"});
 cg.createImage({id:"win",file:"win.png"});
 cg.createImage({id:"star",file:"star.png"});
 cg.createImage({id:"credits",file:"credits.png"});
+cg.createImage({id:"speaker",file:"speaker.png"});
+cg.createImage({id:"logo",file:"logo.png"});
 
 cg.createImage({id:"playtesters",file:"decoratives/playtesters.png"});
 cg.createImage({id:"spoons",file:"decoratives/spoons.png"});
 cg.createImage({id:"foxrabbit",file:"decoratives/foxrabbit.png"});
 cg.createImage({id:"capybaraspider",file:"decoratives/capybaraspider.png"});
+cg.createImage({id:"snakeTutorial",file:"decoratives/snake.png"});
 
 ChoreoGraph.AudioController.createSound("complete","audio/complete.mp3");
+ChoreoGraph.AudioController.createSound("down0","audio/down0.mp3");
+ChoreoGraph.AudioController.createSound("down1","audio/down1.mp3");
+ChoreoGraph.AudioController.createSound("down2","audio/down2.mp3");
+ChoreoGraph.AudioController.createSound("down3","audio/down3.mp3");
+ChoreoGraph.AudioController.createSound("up0","audio/up0.mp3");
+
+function playDownSound() {
+  let sound = "down"+Math.floor(Math.random()*4);
+  ChoreoGraph.AudioController.start(sound,0,0,0.3);
+}
+function playUpSound() {
+  let sound = "up0";
+  ChoreoGraph.AudioController.start(sound,0,0,0.3);
+}
+
 ChoreoGraph.AudioController.createSound("music","audio/ld56.mp3",{autoplay:true,volume:0.5,loop:true});
 
 const levels = {
@@ -220,6 +238,7 @@ cg.settings.callbacks.cursorUp = function() {
     } else if (gridHovered) { // Dropped on grid
       ChoreoGraph.Input.hoveredCG.cnvs.style.cursor = "grab";
       grid.creatures[grid.selectedCreature].hidden = false;
+      playDownSound();
     }
   }
   picker.update();
@@ -255,6 +274,7 @@ cg.settings.callbacks.loopBefore = function(cg) {
     cg.addToLevel(1,cg.graphics.returnToLevels);
   }
   cg.addToLevel(2,cg.graphics.confetti);
+  cg.addToLevel(2,cg.graphics.mute);
 }
 
 cg.settings.callbacks.loopAfter = function(cg) {
@@ -315,7 +335,7 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
           let tileSize = g.maxWidth/g.gSize;
           let xo = tileSize*g.gSize/2-tileSize/2;
           let yo = tileSize*g.gSize/2-tileSize/2;
-          let newButton = cg.createButton({x:x*tileSize-xo,y:y*tileSize-yo,width:tileSize,height:tileSize,id:"grid"+x+","+y,gridX:x,gridY:y,cursor:"default",check:"gameScreen",CGSpace:true,
+          let newButton = cg.createButton({x:x*tileSize-xo,y:y*tileSize-yo,width:tileSize,height:tileSize,id:"grid"+x+","+y,gridX:x,gridY:y,buttons:[true,false,true],cursor:"default",check:"gameScreen",CGSpace:true,
             enter:function(){
               if (grid.selectedCreature !== null) {
                 let creature = grid.creatures[grid.selectedCreature];
@@ -337,11 +357,13 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
                 }
               }
             },
-            down:function(){
+            down:function(event){
               if (grid.currentLevel.locked) { return; }
               let creatureIndex = 0;
+              let found = false;
               for (let creature of grid.creatures) {
                 if (creature.x == this.gridX && creature.y == this.gridY) {
+                  found = true;
                   grid.selectedCreature = creatureIndex;
                   ChoreoGraph.Input.hoveredCG.cnvs.style.cursor = "grabbing";
                   creature.hidden = true;
@@ -350,6 +372,12 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
                 }
                 creatureIndex++;
               }
+              if (ChoreoGraph.Input.cursor.impulse.right) {
+                grid.creatures.splice(creatureIndex,1);
+                grid.selectedCreature = null;
+                picker.update();
+              }
+              if (found) { playUpSound(); }
               grid.updateButtonCursors();
             }
           });
@@ -598,20 +626,10 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       // cg.c.textBaseline = "top";
       // cg.c.fillText(gridCreature.agitation,x*tileSize-xo+g.textCornerPadding,y*tileSize-yo+g.textCornerPadding);
     }
-    cg.c.font = "50px Arial";
-    cg.c.textAlign = "center";
-    cg.c.textBaseline = "middle";
-    if (grid.currentLevel.completed) {
-      cg.c.fillStyle = "#00ad03";
-      // cg.c.fillText("Level Complete",0,350);
-    } else {
-      cg.c.fillStyle = "#ba3934";
-      // cg.c.fillText("Level Incomplete",0,350);
-    }
     let spoonsScaler = 0.8;
     cg.c.globalAlpha = 0.7;
     if (grid.currentLevel.name=="2") {
-      cg.drawImage(cg.images.spoons,800,-700,791*spoonsScaler,1150*spoonsScaler,5,false);
+      cg.drawImage(cg.images.spoons,850,-700,791*spoonsScaler,1150*spoonsScaler,5,false);
     } else if (grid.currentLevel.name=="3") {
       cg.drawImage(cg.images.spoons,-700,800,791*spoonsScaler,1150*spoonsScaler,5,false);
     } else if (grid.currentLevel.name=="4") {
@@ -623,7 +641,21 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       cg.drawImage(cg.images.foxrabbit,-650,0,1000*tutorialScaler,1500*tutorialScaler,5,false);
     } else if (["5"].includes(grid.currentLevel.name)) {
       cg.drawImage(cg.images.capybaraspider,-650,0,1000*tutorialScaler,1500*tutorialScaler,-5,false);
+    } else if (["6"].includes(grid.currentLevel.name)) {
+      cg.drawImage(cg.images.snakeTutorial,-650,0,1000*tutorialScaler,1000*tutorialScaler,-5,false);
     }
+
+    cg.c.font = "170px MgOpenModata";
+    cg.c.fillStyle = ["#e93526","#fb9938","#fdd816","#17912a","#10caf3","#a871d9","#ff47be"][parseInt(grid.currentLevel.name)-1];
+    cg.c.save();
+    cg.c.translate(330,-300);
+    cg.c.rotate((20)*Math.PI/180);
+    cg.c.fillText(grid.currentLevel.name,0,0);
+    cg.c.filter = "blur(8px)";
+    cg.c.strokeStyle = "#888888";
+    cg.c.lineWidth = 3;
+    cg.c.strokeText(grid.currentLevel.name,0,0);
+    cg.c.restore();
   }
 }
 const grid = cg.createGraphic({type:"grid",id:"grid",CGSpace:true});
@@ -709,9 +741,9 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
         }
       }
       cg.c.fillStyle = "#000000";
-      cg.c.font = "20px MgOpenModata";
+      cg.c.font = "40px MgOpenModata";
       cg.c.textAlign = "left";
-      cg.c.textBaseline = "top";
+      cg.c.textBaseline = "middle";
       if (g.creatures[creatureId] > 0) {
         cg.c.fillText("x"+g.creatures[creatureId],100,y*g.buttonHeight-yo);
       }
@@ -914,7 +946,7 @@ const levelControls = cg.createGraphic({type:"levelControls",id:"levelControls",
 ChoreoGraph.graphicTypes.levelSelectControls = new class levelSelectControls {
   draw(g,cg) {
     let imageScale = 0.2;
-    if (cg.buttons.reset.hovered) {
+    if (cg.buttons.credits.hovered) {
       imageScale = 0.19;
     }
     cg.drawImage(cg.images.credits,0,-80,1500*imageScale,600*imageScale,0,false);
@@ -954,14 +986,14 @@ ChoreoGraph.graphicTypes.credits = new class credits {
   draw(g,cg) {
     let playtestersScale = 0.35;
     cg.drawImage(cg.images.playtesters,500,0,1600*playtestersScale,1600*playtestersScale,5,false);
+    let logoScaler = 0.3;
+    cg.drawImage(cg.images.logo,-400,-100,3000*logoScaler,2000*logoScaler,0,false);
     cg.c.fillStyle = "#1d1d1d";
     cg.c.textAlign = "center";
     cg.c.textBaseline = "middle";
-    cg.c.font = "100px MgOpenModata";
-    cg.c.fillText("LOGO",-400,-80);
     cg.c.font = "50px MgOpenModata";
     cg.c.fillText("Created by Willby",-400,80);
-    cg.drawImage(cg.images.capybara,-700,350,220,220,-20,false);
+    cg.drawImage(cg.images.capybara,-700,300,220,220,-20,false);
 
     cg.c.font = "170px MgOpenModata";
     // cg.c.fillStyle = "#a871d9";
@@ -978,6 +1010,34 @@ ChoreoGraph.graphicTypes.credits = new class credits {
   }
 }
 const credits = cg.createGraphic({type:"credits",id:"credits",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0.5});
+
+cg.createButton({x:0,y:-80,width:270,height:120,id:"credits",cursor:"pointer",check:"levelsScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1,
+  down:function(){
+    screen = "credits";
+  }
+});
+
+ChoreoGraph.graphicTypes.mute = new class mute {
+  draw(g,cg) {
+    cg.drawImage(cg.images.speaker,55,55,100,100,7,false);
+    if (ChoreoGraph.AudioController.masterVolume==0) {
+      cg.c.strokeStyle = "#ee332a";
+      cg.c.lineWidth = 10;
+      cg.c.lineCap = "round";
+      cg.c.beginPath();
+      cg.c.moveTo(30,30);
+      cg.c.lineTo(85,85);
+      cg.c.stroke();
+    }
+  }
+}
+const mute = cg.createGraphic({type:"mute",id:"mute",CGSpace:false,canvasSpaceXAnchor:0,canvasSpaceYAnchor:0});
+
+cg.createButton({x:55,y:55,width:100,height:100,id:"mute",cursor:"pointer",CGSpace:false,canvasSpaceXAnchor:0,canvasSpaceYAnchor:0,
+  down:function(){
+    ChoreoGraph.AudioController.masterVolume = !ChoreoGraph.AudioController.masterVolume;
+  }
+});
 
 cg.settings.callbacks.updateButtonChecks = function(cg) {
   let output = {
@@ -1000,6 +1060,8 @@ cg.settings.callbacks.updateButtonChecks = function(cg) {
 }
 
 grid.loadLevel(levels[4]);
+
+cg.cnvs.addEventListener("contextmenu", function(event) { event.preventDefault(); });
 
 cg.camera.scaleMode = "maximum";
 cg.camera.maximumSize = 1920;
