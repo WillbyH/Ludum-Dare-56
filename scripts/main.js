@@ -17,20 +17,29 @@ cg.createImage({id:"spoons",file:"decoratives/spoons.png"});
 cg.createImage({id:"foxrabbit",file:"decoratives/foxrabbit.png"});
 cg.createImage({id:"capybaraspider",file:"decoratives/capybaraspider.png"});
 cg.createImage({id:"snakeTutorial",file:"decoratives/snake.png"});
+cg.createImage({id:"level7",file:"decoratives/level_7_message.png"});
 
 ChoreoGraph.AudioController.createSound("complete","audio/complete.mp3");
 ChoreoGraph.AudioController.createSound("down0","audio/down0.mp3");
 ChoreoGraph.AudioController.createSound("down1","audio/down1.mp3");
 ChoreoGraph.AudioController.createSound("down2","audio/down2.mp3");
 ChoreoGraph.AudioController.createSound("down3","audio/down3.mp3");
+ChoreoGraph.AudioController.createSound("down4","audio/down4.mp3");
+ChoreoGraph.AudioController.createSound("down5","audio/down5.mp3");
+ChoreoGraph.AudioController.createSound("down6","audio/down6.mp3");
 ChoreoGraph.AudioController.createSound("up0","audio/up0.mp3");
+ChoreoGraph.AudioController.createSound("up1","audio/up1.mp3");
+ChoreoGraph.AudioController.createSound("up2","audio/up2.mp3");
+ChoreoGraph.AudioController.createSound("up3","audio/up3.mp3");
+ChoreoGraph.AudioController.createSound("up4","audio/up4.mp3");
+ChoreoGraph.AudioController.createSound("up5","audio/up5.mp3");
 
 function playDownSound() {
-  let sound = "down"+Math.floor(Math.random()*4);
+  let sound = "down"+Math.floor(Math.random()*6);
   ChoreoGraph.AudioController.start(sound,0,0,0.3);
 }
 function playUpSound() {
-  let sound = "up0";
+  let sound = "up"+Math.floor(Math.random()*5);;
   ChoreoGraph.AudioController.start(sound,0,0,0.3);
 }
 
@@ -305,6 +314,9 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
     g.isInCompleteState = false;
 
     g.resetCurrentLevel = function() {
+      for (let i=0;i<Math.min(grid.creatures.length,15);i++) {
+        cg.createEvent({duration:i*0.05+0.02*Math.random(),end:function(){playUpSound();console.log("end")},loop:false});
+      }
       grid.currentLevel.savedData = [];
       grid.currentLevel.locked = false;
       grid.loadLevel(grid.currentLevel);
@@ -570,7 +582,8 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       }
     } else {
       let image = cg.images["grid"+g.gSize];
-      cg.drawImage(image,0,0,g.maxWidth*1.03,g.maxWidth*1.03,0,false);
+      let rot = [0,90,0,0,0,0,90][parseInt(g.currentLevel.name)-1];
+      cg.drawImage(image,0,0,g.maxWidth*1.03,g.maxWidth*1.03,rot,false);
     }
     for (let gridCreature of g.creatures) {
       if (!gridCreature.hasEntered||gridCreature.agitation<-50) { continue; }
@@ -643,6 +656,8 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       cg.drawImage(cg.images.capybaraspider,-650,0,1000*tutorialScaler,1500*tutorialScaler,-5,false);
     } else if (["6"].includes(grid.currentLevel.name)) {
       cg.drawImage(cg.images.snakeTutorial,-650,0,1000*tutorialScaler,1000*tutorialScaler,-5,false);
+    } else if (["7"].includes(grid.currentLevel.name)) {
+      cg.drawImage(cg.images.level7,-640,0,1000*tutorialScaler,1000*tutorialScaler,3,false);
     }
 
     cg.c.font = "170px MgOpenModata";
@@ -780,6 +795,7 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
           down:function(){
             grid.loadLevel(levels[this.levelId]);
             screen = "game";
+            playUpSound();
           }
         });
         levelNum++;
@@ -879,7 +895,8 @@ ChoreoGraph.graphicTypes.confetti = new class confetti {
   }
   draw(g,cg) {
     if (g.active) {
-      for (let particle of g.particles) {
+      for (let particleNum=0;particleNum<g.particles.length;particleNum++) {
+        let particle = g.particles[particleNum];
         particle.y += particle.speed*cg.timeDelta;
         particle.rotation += particle.rotationSpeed;
         if (particle.y < -100) { continue; }
@@ -891,6 +908,7 @@ ChoreoGraph.graphicTypes.confetti = new class confetti {
         cg.c.restore();
         if (particle.y > cg.ch+100) {
           g.particles.splice(g.particles.indexOf(particle),1);
+          particleNum--;
         }
       }
     }
