@@ -21,6 +21,7 @@
   }
 ?>
 <script src="<?php echo $cglocation?>choreograph.js" type="text/javascript"></script>
+<script src="<?php echo $cglocation?>plugins/audio.js" type="text/javascript"></script>
 <?php if (file_exists("cglocation.txt")) { echo '<script src="' . $cglocation . 'plugins/visualisation.js" type="text/javascript"></script>'; } ?>
 <?php if (file_exists("cglocation.txt")) { echo '<script src="' . $cglocation . 'plugins/develop.js" type="text/javascript"></script>'; } ?>
 <script src="scripts/setup.js" type="text/javascript"></script>

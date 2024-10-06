@@ -9,6 +9,11 @@ cg.createImage({id:"next",file:"next.png"});
 cg.createImage({id:"win",file:"win.png"});
 cg.createImage({id:"star",file:"star.png"});
 
+cg.createImage({id:"spoons",file:"decoratives/spoons.png"});
+
+ChoreoGraph.AudioController.createSound("complete","audio/complete.mp3");
+ChoreoGraph.AudioController.createSound("music","audio/ld56.mp3",{autoplay:true,volume:0.5,loop:true});
+
 const levels = {
   0 : {
     name : "1",
@@ -232,6 +237,7 @@ cg.settings.callbacks.loopBefore = function(cg) {
   } else if (screen == "levels") {
     cg.addToLevel(0,cg.graphics.levelSelector);
   }
+  cg.addToLevel(2,cg.graphics.confetti);
 }
 
 cg.settings.callbacks.loopAfter = function(cg) {
@@ -242,7 +248,7 @@ cg.settings.callbacks.loopAfter = function(cg) {
   }
 }
 
-let screen = "levels";
+let screen = "game";
 
 ChoreoGraph.graphicTypes.grid = new class Grid {
   setup(g,graphicInit,cg) {
@@ -417,6 +423,8 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
     if (cg.clock>g.nextCompleteCheck&&g.isInCompleteState&&g.currentLevel.locked==false) {
       g.currentLevel.completed = true;
       g.currentLevel.locked = true;
+      ChoreoGraph.AudioController.start("complete",0,0,0.3);
+      confetti.start();
       g.currentLevel.lockedTime = cg.clock;
     }
     let markers = {};
@@ -583,6 +591,14 @@ ChoreoGraph.graphicTypes.grid = new class Grid {
       cg.c.fillStyle = "#ba3934";
       // cg.c.fillText("Level Incomplete",0,350);
     }
+    let spoonsScaler = 0.8;
+    if (grid.currentLevel.name=="1") {
+      cg.drawImage(cg.images.spoons,800,-700,791*spoonsScaler,1150*spoonsScaler,5,false);
+    } else if (grid.currentLevel.name=="2") {
+      cg.drawImage(cg.images.spoons,-700,700,791*spoonsScaler,1150*spoonsScaler,5,false);
+    } else if (grid.currentLevel.name=="3") {
+      cg.drawImage(cg.images.spoons,900,900,791*spoonsScaler,1150*spoonsScaler,-7,false);
+    }
   }
 }
 const grid = cg.createGraphic({type:"grid",id:"grid",CGSpace:true});
@@ -623,8 +639,8 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
       for (let creature of Object.keys(this.creatures)) {
         let y = creatureNum;
         let x = picker.x;
-        let yo = g.height/2-g.buttonHeight/2;
-        let newButton = cg.createButton({x:x,y:y*g.buttonHeight-yo,width:g.width,height:g.buttonHeight,id:"picker"+creature,creature:creature,cursor:"pointer",check:"gameScreen",CGSpace:true,
+        let yo = (g.buttonHeight*(Object.keys(g.creatures).length-1)/2);
+        let newButton = cg.createButton({x:x,y:y*g.buttonHeight-yo,width:g.width,height:g.buttonHeight,id:"picker"+creature,creature:creature,cursor:"pointer",check:"pick"+creatureNum,CGSpace:true,
           down:function(){
             if (g.creatures[this.creature] > 0) {
               grid.creatures.push({creature:this.creature,x:0,y:0,agitation:0,hidden:true,unhideWhenDropped:true,hasEntered:false});
@@ -646,7 +662,7 @@ ChoreoGraph.graphicTypes.picker = new class Picker {
     for (let creatureId of Object.keys(g.creatures)) {
       let creature = creatures[creatureId];
       let y = Object.keys(g.creatures).indexOf(creatureId);
-      let yo = g.height/2-g.buttonHeight/2;
+      let yo = (g.buttonHeight*(Object.keys(g.creatures).length-1)/2);
       if (g.creatures[creatureId] > 0) {
         cg.c.fillStyle = effectorTypes[creatures[creatureId].type].colour;
         cg.c.globalAlpha = 0.1;
@@ -788,27 +804,45 @@ ChoreoGraph.graphicTypes.confetti = new class confetti {
     g.particles = [];
 
     g.start = function() {
+      if (g.active) { return; }
       g.active = true;
       g.particles = [];
-      g.particles.push({
-        x:Math.random()*cg.cw,
-        y:cg.ch,
-        size:Math.random()*2+1,
-        speed:Math.random()*3+1,
-        rotation:Math.random()*360,
-        rotationSpeed:Math.random()*10-5,
-        colour:ChoreoGraph.colourLerp("#ff0000","#00ff00",Math.random())
-      })
+      for (let i=0;i<200;i++) {
+        g.particles.push({
+          x:Math.random()*cg.cw,
+          y:-100-Math.random()*2000,
+          size:Math.random()*20+10,
+          speed:Math.random()*0.70+0.3,
+          rotation:Math.random()*360,
+          rotationSpeed:Math.random()*10-5,
+          colour:["#3fc0c2","#c92a37","#4ed03f","#e8e63b","#e78826","#e85ead","#2f6bbb"][Math.floor(Math.random()*7)]
+        });
+      }
     }
   }
   draw(g,cg) {
     if (g.active) {
-
+      for (let particle of g.particles) {
+        particle.y += particle.speed*cg.timeDelta;
+        particle.rotation += particle.rotationSpeed;
+        if (particle.y < -100) { continue; }
+        cg.c.fillStyle = particle.colour;
+        cg.c.save();
+        cg.c.translate(particle.x,particle.y);
+        cg.c.rotate(particle.rotation*Math.PI/180);
+        cg.c.fillRect(-particle.size,-particle.size/2,particle.size*2,particle.size);
+        cg.c.restore();
+        if (particle.y > cg.ch+100) {
+          g.particles.splice(g.particles.indexOf(particle),1);
+        }
+      }
+    }
+    if (g.particles.length == 0) {
+      g.active = false;
     }
   }
 }
-const confetti = cg.createGraphic({type:"confetti",id:"confetti",CGSpace:true});
-
+const confetti = cg.createGraphic({type:"confetti",id:"confetti",CGSpace:false,canvasSpaceXAnchor:0,canvasSpaceYAnchor:0});
 
 ChoreoGraph.graphicTypes.returnToLevels = new class ReturnToLevels {
   draw(g,cg) {
@@ -820,6 +854,14 @@ ChoreoGraph.graphicTypes.returnToLevels = new class ReturnToLevels {
   }
 }
 const returnToLevels = cg.createGraphic({type:"returnToLevels",id:"returnToLevels",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0});
+
+
+cg.createButton({x:0,y:70,width:400,height:120,id:"returnToLevels",cursor:"pointer",check:"gameScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0,
+  down:function(){
+    grid.currentLevel.savedData = Array.from(grid.creatures);
+    screen = "levels";
+  }
+});
 
 ChoreoGraph.graphicTypes.levelControls = new class levelControls {
   draw(g,cg) {
@@ -844,14 +886,6 @@ ChoreoGraph.graphicTypes.levelControls = new class levelControls {
 }
 const levelControls = cg.createGraphic({type:"levelControls",id:"levelControls",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1});
 
-
-cg.createButton({x:0,y:70,width:400,height:120,id:"returnToLevels",cursor:"pointer",check:"gameScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0,
-  down:function(){
-    grid.currentLevel.savedData = Array.from(grid.creatures);
-    screen = "levels";
-  }
-});
-
 cg.createButton({x:-150,y:-80,width:270,height:120,id:"reset",cursor:"pointer",check:"gameScreen",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:1,
   down:function(){
     grid.resetCurrentLevel();
@@ -862,7 +896,7 @@ cg.createButton({x:150,y:-80,width:270,height:120,id:"next",cursor:"pointer",che
   down:function(){
     grid.currentLevel.savedData = Array.from(grid.creatures);
     if (grid.currentLevel.name===levels[levelSelector.levels[levelSelector.levels.length-1]].name) { // Is last level
-      screen = "win";
+      screen = "credits";
     } else {
       for (let i = 0; i < levelSelector.levels.length; i++) {
         if (levels[levelSelector.levels[i]].name == grid.currentLevel.name) {
@@ -875,6 +909,29 @@ cg.createButton({x:150,y:-80,width:270,height:120,id:"next",cursor:"pointer",che
     }
   }
 });
+
+ChoreoGraph.graphicTypes.credits = new class credits {
+  draw(g,cg) {
+    let imageScale = 0.2;
+    if (cg.buttons.reset.hovered) {
+      imageScale = 0.19;
+    }
+    cg.drawImage(cg.images.reset,-140,-80,1500*imageScale,600*imageScale,0,false);
+    imageScale = 0.2;
+    if (cg.buttons.next.hovered) {
+      imageScale = 0.19;
+    }
+    if (!grid.currentLevel.completed) {
+      cg.c.globalAlpha = 0.2;
+    }
+    if (grid.currentLevel.name===levels[levelSelector.levels[levelSelector.levels.length-1]].name) { // Is last level
+      cg.drawImage(cg.images.win,150,-80,1500*imageScale,600*imageScale,0,false);
+    } else {
+      cg.drawImage(cg.images.next,150,-80,1500*imageScale,600*imageScale,0,false);
+    }
+  }
+}
+const credits = cg.createGraphic({type:"credits",id:"credits",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0.5});
 
 cg.settings.callbacks.updateButtonChecks = function(cg) {
   let output = {
@@ -889,10 +946,13 @@ cg.settings.callbacks.updateButtonChecks = function(cg) {
     previous = levels[level];
     levelNum++;
   }
+  for (let creature of Object.keys(picker.creatures)) {
+    output["pick"+Object.keys(picker.creatures).indexOf(creature)] = picker.creatures[creature] > 0&&screen=="game";
+  }
   return output;
 }
 
-grid.loadLevel(levels[0]);
+grid.loadLevel(levels[4]);
 
 cg.camera.scaleMode = "maximum";
 cg.camera.maximumSize = 1920;
