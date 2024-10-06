@@ -7,6 +7,7 @@ cg.createImage({id:"grid3",file:"grid-3.png"});
 cg.createImage({id:"reset",file:"reset.png"});
 cg.createImage({id:"next",file:"next.png"});
 cg.createImage({id:"win",file:"win.png"});
+cg.createImage({id:"star",file:"star.png"});
 
 const levels = {
   0 : {
@@ -64,8 +65,7 @@ const levels = {
     name : "4",
     gridSize : 5,
     creatures : {
-      fox : 6,
-      rabbit : 3
+      fox : 9
     },
     completed : false,
     viewed : false,
@@ -703,7 +703,7 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
       let xoC = g.levels.length*g.widthPerLevel/2-g.widthPerLevel/2;
       let levelNum = 0;
       for (let levelId of g.levels) {
-        cg.createButton({x:0-xoC+g.widthPerLevel*levelNum,y:0,width:g.widthPerLevel,height:g.hightPerLevel,id:"level"+levelId,levelId:levelId,cursor:"pointer",check:"levelsScreen",CGSpace:true,
+        cg.createButton({x:0-xoC+g.widthPerLevel*levelNum,y:0,width:g.widthPerLevel,height:g.hightPerLevel,id:"level"+levelId,levelId:levelId,cursor:"pointer",check:"levelsScreenAvailable"+levels[levelId].name,CGSpace:true,
           down:function(){
             grid.loadLevel(levels[this.levelId]);
             screen = "game";
@@ -750,6 +750,12 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
       cg.c.filter = "blur(8px)";
       cg.c.strokeText(levels[level].name,0,0);
       cg.c.restore();
+
+      if (levels[level].completed) {
+        let rot = [38,-60,180,270,100,300,230][levelNum];
+        cg.drawImage(cg.images.star,0-xoC+g.widthPerLevel*levelNum-60,-g.hightPerLevel/2+180,70,70,rot,false);
+      }
+
       levelNum++;
       if (levels[level].viewed) {
         viewedPrevious = true;
@@ -775,6 +781,34 @@ ChoreoGraph.graphicTypes.levelSelector = new class LevelSelector {
 }
 const levelSelector = cg.createGraphic({type:"levelSelector",id:"levelSelector",CGSpace:true});
 levelSelector.createButtons();
+
+ChoreoGraph.graphicTypes.confetti = new class confetti {
+  setup(g,graphicInit,cg) {
+    g.active = false;
+    g.particles = [];
+
+    g.start = function() {
+      g.active = true;
+      g.particles = [];
+      g.particles.push({
+        x:Math.random()*cg.cw,
+        y:cg.ch,
+        size:Math.random()*2+1,
+        speed:Math.random()*3+1,
+        rotation:Math.random()*360,
+        rotationSpeed:Math.random()*10-5,
+        colour:ChoreoGraph.colourLerp("#ff0000","#00ff00",Math.random())
+      })
+    }
+  }
+  draw(g,cg) {
+    if (g.active) {
+
+    }
+  }
+}
+const confetti = cg.createGraphic({type:"confetti",id:"confetti",CGSpace:true});
+
 
 ChoreoGraph.graphicTypes.returnToLevels = new class ReturnToLevels {
   draw(g,cg) {
@@ -843,11 +877,19 @@ cg.createButton({x:150,y:-80,width:270,height:120,id:"next",cursor:"pointer",che
 });
 
 cg.settings.callbacks.updateButtonChecks = function(cg) {
-  return {
+  let output = {
     "gameScreen" : screen=="game",
     "gameScreen-levelComplete" : screen=="game"&&grid.currentLevel.completed,
     "levelsScreen" : screen=="levels"
   }
+  let levelNum = 0;
+  let previous = null;
+  for (let level of levelSelector.levels) {
+    output["levelsScreenAvailable"+levels[level].name] = (previous?.viewed||levelNum===0)&&screen=="levels";
+    previous = levels[level];
+    levelNum++;
+  }
+  return output;
 }
 
 grid.loadLevel(levels[0]);
